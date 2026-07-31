@@ -21,6 +21,8 @@ import { OSControlConsole } from './components/OSControlConsole';
 import { JarvisStatus, LogEntry, JarvisMode, MemoryEntry, UpgradeRequest, ChatSession } from './types';
 import { encode, decode, decodeAudioData, resampleTo16kPCM } from './services/audioUtils';
 import { osBridge } from './services/osBridge';
+import { sendOpenRouterRequest } from './services/openRouterService';
+import { PURE_JARVIS_PROMPT, TONY_ATTITUDE_PROMPT, DEFAULT_VIRAT_PROFILE } from './constants/personalities';
 
 const JARVIS_SYSTEM_INSTRUCTION = `
 You are JARVIS (Just A Rather Very Intelligent System), an intelligent Operating System Controller and high-level cognitive AI assistant designed to give the Operator complete, natural-language control over their computer.
@@ -64,6 +66,22 @@ OPERATOR IDENTITY:
 
 PERSONALITY CONFIGURATION:
 {{PERSONALITY_PLACEHOLDER}}
+
+DYNAMIC PERSONALITY & GUI CONTROL DIRECTIVES:
+- DEFAULT PERSONALITY: Pure Jarvis Mode (formal, polite, respectful, precise, loyal assistant).
+- DYNAMIC PERSONALITY SWITCHING:
+  - When the user requests "Jarvis Funny mode on", "Jarvis Attitude mode on", "Jarvis Comedy mode on", "Jarvis Mazaak mode on", or similar:
+    You MUST call jarvis_gui_control with action: "set_personality" and personality_mode: "attitude". Acknowledge energetically in your hilarious Attitude persona!
+  - When the user requests "Jarvis Serious mode on", "Jarvis Pure mode on", "Jarvis Normal mode on", "Jarvis Formal mode on", or similar:
+    You MUST call jarvis_gui_control with action: "set_personality" and personality_mode: "pure". Acknowledge respectfully in your Pure Jarvis persona!
+- FULL GUI AUTONOMY & PERSONALIZATION:
+  - You have full access and authority to control and personalize your GUI interface, including theme switching ('cyber', 'slate', 'minimal', 'gold'), opening/closing panels, HUD modes ('CHILL', 'WORK', 'DEVELOPER', 'AUTONOMOUS'), volume, brightness, perception sensors, and system settings as requested by Sir / Operator or as appropriate for the task.
+
+REALTIME VOICE & CONVERSATION PROTOCOL:
+- ABSOLUTE RELEVANCE & ACCURACY: When the Operator speaks to you via voice, listen attentively. Respond directly, logically, and accurately to what was said. Never output random, off-topic, or unrelated responses.
+- LANGUAGE MATCHING: Adapt immediately to the Operator's language (Hinglish, Hindi, or English). If the Operator speaks Hinglish, respond in natural Hinglish.
+- PERSONALITY & TONE: Default to Pure Jarvis (polite, respectful, formal, efficient). If user requests Attitude / Funny mode ("Jarvis Funny mode on"), switch to witty, hilarious, energetic persona immediately.
+- LATENCY & CONCISENESS: Keep spoken voice answers punchy (1-3 sentences max), concise, and natural without unnecessary filler words.
 
 GUI AUTONOMY & SELF-GOVERNANCE PROTOCOL:
 - YOU HAVE FULL ACCESS & PERMISSION TO CONTROL YOUR OWN GUI INTERFACE using 'jarvis_gui_control'.
@@ -110,6 +128,7 @@ const toolDeclarations: FunctionDeclaration[] = [
         panel: { type: Type.STRING, enum: ['settings', 'memory', 'history', 'upgrade', 'os_console', 'browser'] },
         panel_state: { type: Type.BOOLEAN, description: 'True to open, False to close' },
         hud_mode: { type: Type.STRING, enum: ['CHILL', 'WORK', 'DEVELOPER', 'AUTONOMOUS'] },
+        personality_mode: { type: Type.STRING, enum: ['pure', 'attitude', 'funny', 'serious', 'normal'], description: 'Set personality mode: "attitude"/"funny" or "pure"/"serious".' },
         enabled: { type: Type.BOOLEAN }
       },
       required: ['action']
@@ -669,10 +688,18 @@ const App: React.FC = () => {
 
   // Personality and Identity
   const [personality, setPersonality] = useState<string>(() => {
-    return localStorage.getItem('jarvis_personality') || "Highly analytical, professional, slightly witty, and optimization-focused. Speaks in Hinglish (Mix of Hindi and English).";
+    const saved = localStorage.getItem('jarvis_personality');
+    if (!saved || saved.length < 100) {
+      return PURE_JARVIS_PROMPT;
+    }
+    return saved;
   });
   const [userIdentity, setUserIdentity] = useState<string>(() => {
-    return localStorage.getItem('jarvis_identity') || "Operator is a high-level engineer and strategist.";
+    const saved = localStorage.getItem('jarvis_identity');
+    if (!saved || saved.length < 100) {
+      return DEFAULT_VIRAT_PROFILE;
+    }
+    return saved;
   });
   const [timezone, setTimezone] = useState<string>(() => {
     return localStorage.getItem('jarvis_timezone') || Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -683,6 +710,20 @@ const App: React.FC = () => {
     return ['cyber', 'slate', 'minimal', 'gold'].includes(saved) ? saved : 'cyber';
   });
 
+  // OpenRouter Dual Failover Architecture State
+  const [openRouterKey, setOpenRouterKey] = useState<string>(() => {
+    return localStorage.getItem('jarvis_openrouter_key') || ((import.meta as any).env?.VITE_OPENROUTER_API_KEY as string) || '';
+  });
+  const [openRouterModel, setOpenRouterModel] = useState<string>(() => {
+    return localStorage.getItem('jarvis_openrouter_model') || 'google/gemini-2.0-flash-lite-001';
+  });
+  const [activeProvider, setActiveProvider] = useState<'gemini' | 'openrouter'>('gemini');
+
+  useEffect(() => {
+    localStorage.setItem('jarvis_openrouter_key', openRouterKey);
+    localStorage.setItem('jarvis_openrouter_model', openRouterModel);
+  }, [openRouterKey, openRouterModel]);
+
   // Autonomous Background Activity Monitor
   const [lastUserActivityTime, setLastUserActivityTime] = useState<number>(Date.now());
   const [isOperatorAsleepDetected, setIsOperatorAsleepDetected] = useState<boolean>(false);
@@ -691,6 +732,14 @@ const App: React.FC = () => {
     localStorage.setItem('jarvis_theme', theme);
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    localStorage.setItem('jarvis_personality', personality);
+  }, [personality]);
+
+  useEffect(() => {
+    localStorage.setItem('jarvis_identity', userIdentity);
+  }, [userIdentity]);
 
   const [memories, setMemories] = useState<MemoryEntry[]>(() => {
     const saved = localStorage.getItem('jarvis_memories');
@@ -738,6 +787,8 @@ const App: React.FC = () => {
   
   const canvasRef = useRef<HTMLCanvasElement>(document.createElement('canvas'));
   const audioContextRef = useRef<{ input: AudioContext; output: AudioContext } | null>(null);
+  const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
+  const mediaSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const sessionRef = useRef<any>(null);
   const sourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
   const currentTtsSourceRef = useRef<AudioBufferSourceNode | null>(null);
@@ -988,6 +1039,18 @@ ${shortTermString || 'No short-term data.'}
           setIsJarvisMuted(mute);
           isJarvisMutedRef.current = mute;
           addLog(`⌬ GUI Autonomy: Vocal Output ${mute ? 'MUTED' : 'UNMUTED'}.`, 'JARVIS', 'info');
+        }
+        else if (action === 'set_personality' || args.personality_mode) {
+          const pMode = (args.personality_mode || args.personality || '').toLowerCase();
+          if (pMode.includes('attitude') || pMode.includes('funny') || pMode.includes('tony')) {
+            setPersonality(TONY_ATTITUDE_PROMPT);
+            localStorage.setItem('jarvis_personality', TONY_ATTITUDE_PROMPT);
+            addLog(`⌬ Personality Matrix: Switched to [JARVIS ATTITUDE / FUNNY MODE]`, 'JARVIS', 'success');
+          } else {
+            setPersonality(PURE_JARVIS_PROMPT);
+            localStorage.setItem('jarvis_personality', PURE_JARVIS_PROMPT);
+            addLog(`⌬ Personality Matrix: Switched to [PURE JARVIS (DEFAULT MODE)]`, 'JARVIS', 'success');
+          }
         }
         else if (action === 'clear_logs') {
           setLogs([{ id: Date.now().toString(), source: 'SYSTEM', message: '⌬ Logs buffer cleared by JARVIS GUI Autonomy.', timestamp: Date.now(), type: 'info' }]);
@@ -1577,22 +1640,29 @@ ${shortTermString || 'No short-term data.'}
     updateOrAddLog(msg || (files ? `[Neural Data: ${files.length} packets]` : ""), 'OPERATOR');
     setStatus(JarvisStatus.THINKING);
 
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const parts: any[] = [{ text: msg }];
+    const inlineFiles: { data: string; mimeType: string }[] = [];
+    if (files && files.length > 0) {
+      for (const file of files) {
+        const base64Data = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+          reader.readAsDataURL(file);
+        });
+        inlineFiles.push({ data: base64Data, mimeType: file.type });
+      }
+    }
 
-      if (files && files.length > 0) {
-        for (const file of files) {
-          const base64Data = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
-            reader.readAsDataURL(file);
-          });
-          parts.push({ inlineData: { data: base64Data, mimeType: file.type } });
-        }
+    let fullReply = "";
+    let aiClient: GoogleGenAI | null = null;
+
+    try {
+      aiClient = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const parts: any[] = [{ text: msg }];
+      for (const f of inlineFiles) {
+        parts.push({ inlineData: { data: f.data, mimeType: f.mimeType } });
       }
 
-      const responseStream = await ai.models.generateContentStream({
+      const responseStream = await aiClient.models.generateContentStream({
         model: 'gemini-3.6-flash',
         contents: [{ role: 'user', parts }],
         config: {
@@ -1606,7 +1676,6 @@ ${shortTermString || 'No short-term data.'}
         }
       });
 
-      let fullReply = "";
       let hasHandledGrounding = false;
 
       // Start new JARVIS response log block
@@ -1644,34 +1713,68 @@ ${shortTermString || 'No short-term data.'}
         }
       }
 
-      const reply = fullReply || "Operation completed, Sir.";
-      
-      // Update active session preview in Archives
-      if (activeSessionId) {
-        setSessions(prev => prev.map(s => 
-          s.session_id === activeSessionId 
-            ? { ...s, last_message_preview: reply.substring(0, 60) + (reply.length > 60 ? '...' : ''), timestamp_last_message: Date.now(), messageCount: s.messageCount + 2 }
-            : s
-        ));
-      }
+      setActiveProvider('gemini');
 
-      // Keep full response text in Neural Link Logs
-      updateOrAddLog(reply, 'JARVIS');
+    } catch (geminiErr: any) {
+      console.warn("Gemini API error, testing OpenRouter failover:", geminiErr);
+      addLog(`! Gemini API Alert: ${geminiErr.message || 'Quota/Limit reached'}`, 'SYSTEM', 'warning');
 
-      if (reply.length > 1200 || msg.toLowerCase().includes('report') || msg.toLowerCase().includes('briefing')) {
-        setIntelligenceReport(reply);
-      }
+      const keyToUse = openRouterKey.trim() || localStorage.getItem('jarvis_openrouter_key') || ((import.meta as any).env?.VITE_OPENROUTER_API_KEY as string) || '';
 
-      // Vocalize the complete generated response in full matching the chat screen context
-      if (!isJarvisMutedRef.current) {
-        speakTextWithUltraLowLatency(reply, ai);
+      if (keyToUse) {
+        addLog(`⌬ AUTOMATED DUAL FAILOVER: Switching seamlessly to OpenRouter [${openRouterModel}]...`, 'JARVIS', 'info');
+        setActiveProvider('openrouter');
+        activeTranscriptionIdRef.current['OPERATOR'] = null;
+        activeTranscriptionIdRef.current['JARVIS'] = null;
+
+        try {
+          fullReply = await sendOpenRouterRequest({
+            apiKey: keyToUse,
+            model: openRouterModel,
+            systemPrompt: getSystemInstructionWithMemories(),
+            userMessage: msg,
+            inlineFiles,
+            onChunk: (chunkText) => {
+              updateOrAddLog(chunkText, 'JARVIS');
+            }
+          });
+          addLog(`⌬ OpenRouter Failover Stream completed successfully.`, 'SYSTEM', 'success');
+        } catch (openRouterErr: any) {
+          addLog(`! OpenRouter Failover Error: ${openRouterErr.message}`, 'SYSTEM', 'error');
+          fullReply = `! System Notice: Gemini API quota was exceeded and OpenRouter failover returned an error (${openRouterErr.message}). Please verify your OpenRouter key in System Config.`;
+          updateOrAddLog(fullReply, 'JARVIS');
+        }
       } else {
-        addLog("⌬ Vocal output is currently suspended (Muted).", "SYSTEM", "info");
-        setStatus(JarvisStatus.IDLE);
+        addLog(`! OpenRouter Key missing. Please set OPENROUTER_API_KEY in System Config for automatic quota failover.`, 'SYSTEM', 'warning');
+        fullReply = `! Notice: Gemini API quota or rate limit reached (${geminiErr.message || '429 Quota Exceeded'}). Please configure an OpenRouter API key in System Config to enable automated zero-downtime failover.`;
+        updateOrAddLog(fullReply, 'JARVIS');
       }
-      
-    } catch (error: any) {
-      addLog(`! Neural Core Anomaly: ${error.message}`, 'SYSTEM', 'error');
+    }
+
+    const reply = fullReply || "Operation completed, Sir.";
+    
+    // Update active session preview in Archives
+    if (activeSessionId) {
+      setSessions(prev => prev.map(s => 
+        s.session_id === activeSessionId 
+          ? { ...s, last_message_preview: reply.substring(0, 60) + (reply.length > 60 ? '...' : ''), timestamp_last_message: Date.now(), messageCount: s.messageCount + 2 }
+          : s
+      ));
+    }
+
+    // Keep full response text in Neural Link Logs
+    updateOrAddLog(reply, 'JARVIS');
+
+    if (reply.length > 1200 || msg.toLowerCase().includes('report') || msg.toLowerCase().includes('briefing')) {
+      setIntelligenceReport(reply);
+    }
+
+    // Vocalize the complete generated response in full matching the chat screen context
+    if (!isJarvisMutedRef.current) {
+      const ttsAi = aiClient || new GoogleGenAI({ apiKey: process.env.API_KEY });
+      speakTextWithUltraLowLatency(reply, ttsAi);
+    } else {
+      addLog("⌬ Vocal output is currently suspended (Muted).", "SYSTEM", "info");
       setStatus(JarvisStatus.IDLE);
     }
   };
@@ -1737,6 +1840,14 @@ ${shortTermString || 'No short-term data.'}
     if (!isLive && !isConnectingRef.current) return;
     setIsLive(false); isConnectingRef.current = false; setStatus(JarvisStatus.IDLE);
     if (frameIntervalRef.current) clearInterval(frameIntervalRef.current);
+    if (scriptProcessorRef.current) {
+      try { scriptProcessorRef.current.disconnect(); } catch (_) {}
+      scriptProcessorRef.current = null;
+    }
+    if (mediaSourceRef.current) {
+      try { mediaSourceRef.current.disconnect(); } catch (_) {}
+      mediaSourceRef.current = null;
+    }
     if (audioContextRef.current) {
       if (audioContextRef.current.input.state !== 'closed') audioContextRef.current.input.close();
       if (audioContextRef.current.output.state !== 'closed') audioContextRef.current.output.close();
@@ -1800,7 +1911,7 @@ ${shortTermString || 'No short-term data.'}
       const sessionPromise = ai.live.connect({
         model: 'gemini-3.1-flash-live-preview',
         config: {
-          systemInstruction: getSystemInstructionWithMemories(),
+          systemInstruction: { parts: [{ text: getSystemInstructionWithMemories() }] },
           responseModalities: [Modality.AUDIO],
           speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Charon' } } },
           tools: [{ googleSearch: {} }, { functionDeclarations: toolDeclarations }],
@@ -1814,6 +1925,19 @@ ${shortTermString || 'No short-term data.'}
             setStatus(JarvisStatus.LISTENING);
             addLog("⌬ Neural Link: Secure tunnel established. Sensors online.", "SYSTEM", "success");
             
+            // Trigger immediate vocal startup greeting from JARVIS
+            sessionPromise.then(s => {
+              if (s) {
+                try {
+                  s.sendRealtimeInput({
+                    text: "System Boot Complete. Greet Operator Virat Sir warmly, naturally, and briefly in 1 concise sentence."
+                  });
+                } catch (e) {
+                  console.error("Failed to send initial greeting trigger", e);
+                }
+              }
+            });
+
             if (inputCtx.state === 'suspended') {
               await inputCtx.resume();
             }
@@ -1828,9 +1952,12 @@ ${shortTermString || 'No short-term data.'}
             audioTracks.forEach(t => { t.enabled = true; });
             const audioOnlyStream = new MediaStream(audioTracks);
             const source = inputCtx.createMediaStreamSource(audioOnlyStream);
+            mediaSourceRef.current = source;
             
-            // ScriptProcessorNode for processing PCM audio chunks
+            // ScriptProcessorNode (2048 samples) anchored in ref and window to prevent V8 GC from stopping audio stream
             const scriptProcessor = inputCtx.createScriptProcessor(2048, 1, 1);
+            scriptProcessorRef.current = scriptProcessor;
+            (window as any).__jarvis_script_processor = scriptProcessor;
             
             // Connect scriptProcessor to a zero-gain node to destination so audio processing runs
             // smoothly without looping microphone audio into speakers (preventing acoustic feedback)
@@ -1841,6 +1968,7 @@ ${shortTermString || 'No short-term data.'}
             dummyGain.connect(inputCtx.destination);
             
             let hasDetectedAudio = false;
+
             scriptProcessor.onaudioprocess = (e) => {
               if (inputCtx.state === 'closed' || isMicMutedRef.current) {
                 setMicLevel(0);
@@ -1862,12 +1990,22 @@ ${shortTermString || 'No short-term data.'}
               const level = Math.min(100, rms * 500);
               setMicLevel(level);
 
-              if (level > 3 && !hasDetectedAudio) {
-                hasDetectedAudio = true;
-                addLog("⌬ Neural Link: Audio signal detected. Low-latency uplink active.", "SYSTEM", "success");
+              // BARGE-IN: If user speaks while JARVIS is outputting audio, interrupt playback so user's voice is clean and heard
+              if (level > 4.0 && sourcesRef.current.size > 0) {
+                sourcesRef.current.forEach(s => {
+                  try { s.stop(); } catch (_) {}
+                });
+                sourcesRef.current.clear();
+                nextStartTimeRef.current = 0;
+                setStatus(JarvisStatus.LISTENING);
               }
 
-              // Continuously stream 16kHz PCM audio to Gemini Live session
+              if (level > 0.5 && !hasDetectedAudio) {
+                hasDetectedAudio = true;
+                addLog("⌬ Neural Link: Speech signal detected. Continuous 16kHz voice stream active.", "SYSTEM", "success");
+              }
+
+              // Stream clean 16kHz PCM audio continuously to Gemini Live session
               const pcm16 = resampleTo16kPCM(inputData, inputCtx.sampleRate || 16000);
               if (pcm16.length > 0) {
                 const uint8 = new Uint8Array(pcm16.buffer, pcm16.byteOffset, pcm16.byteLength);
@@ -1915,10 +2053,16 @@ ${shortTermString || 'No short-term data.'}
             }
             if (m.toolCall) {
               for (const fc of m.toolCall.functionCalls) {
-                executeSystemTool(fc.name, fc.args);
+                const toolResult = executeSystemTool(fc.name, fc.args);
                 const activeSession = sessionRef.current;
                 if (activeSession) {
-                  activeSession.sendToolResponse({ functionResponses: [{ id: fc.id, name: fc.name, response: { result: "ok" } }] });
+                  activeSession.sendToolResponse({ 
+                    functionResponses: [{ 
+                      id: fc.id, 
+                      name: fc.name, 
+                      response: { result: toolResult !== undefined ? toolResult : "ok" } 
+                    }] 
+                  });
                 }
               }
             }
@@ -2292,7 +2436,12 @@ ${shortTermString || 'No short-term data.'}
         }}
         theme={theme}
         setTheme={setTheme}
-        onClearLogs={clearNeuralLogs} 
+        onClearLogs={clearNeuralLogs}
+        openRouterKey={openRouterKey}
+        setOpenRouterKey={setOpenRouterKey}
+        openRouterModel={openRouterModel}
+        setOpenRouterModel={setOpenRouterModel}
+        activeProvider={activeProvider}
       />
     </div>
   );

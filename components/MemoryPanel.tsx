@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
-import { Database, Zap, Target, User, Search, Brain, Plus, Trash2, Shield, UserCircle, Settings2 } from 'lucide-react';
+import { Database, Zap, Target, User, Search, Brain, Plus, Trash2, Shield, UserCircle, Settings2, CheckCircle2, Sparkles, Flame, Save, Check } from 'lucide-react';
 import { MemoryEntry } from '../types';
+import { PERSONALITY_PRESETS, PURE_JARVIS_PROMPT, TONY_ATTITUDE_PROMPT, DEFAULT_VIRAT_PROFILE } from '../constants/personalities';
 
 interface MemoryPanelProps {
   memories: MemoryEntry[];
@@ -54,6 +55,9 @@ const MemoryPanel: React.FC<MemoryPanelProps> = ({
   const [category, setCategory] = useState<MemoryEntry['category']>('User');
   const [memoryType, setMemoryType] = useState<MemoryEntry['type']>('long_term');
 
+  const [savePersonalitySaved, setSavePersonalitySaved] = useState(false);
+  const [saveIdentitySaved, setSaveIdentitySaved] = useState(false);
+
   const isSlate = theme === 'slate';
   const isMinimal = theme === 'minimal';
   const isGold = theme === 'gold';
@@ -63,6 +67,20 @@ const MemoryPanel: React.FC<MemoryPanelProps> = ({
       onAddMemory(newMemory.trim(), category, memoryType);
       setNewMemory('');
     }
+  };
+
+  const handleSavePersonalityExplicit = () => {
+    localStorage.setItem('jarvis_personality', personality);
+    onUpdatePersonality(personality);
+    setSavePersonalitySaved(true);
+    setTimeout(() => setSavePersonalitySaved(false), 2500);
+  };
+
+  const handleSaveIdentityExplicit = () => {
+    localStorage.setItem('jarvis_identity', userIdentity);
+    onUpdateIdentity(userIdentity);
+    setSaveIdentitySaved(true);
+    setTimeout(() => setSaveIdentitySaved(false), 2500);
   };
 
   const longTermMemories = memories.filter(m => m.type === 'long_term');
@@ -187,49 +205,199 @@ const MemoryPanel: React.FC<MemoryPanelProps> = ({
         )}
 
         {activeTab === 'PERSONALITY' && (
-          <div className="h-full flex flex-col gap-4 animate-in fade-in duration-300">
-            <div className="p-4 bg-purple-500/5 border border-purple-500/10 rounded space-y-3">
-              <div className="flex items-center gap-2">
-                <Settings2 className="w-3.5 h-3.5 text-purple-400" />
-                <span className="text-[10px] font-orbitron text-purple-400 tracking-widest uppercase">Behavioral_Matrix</span>
+          <div className="h-full flex flex-col gap-3 animate-in fade-in duration-300 overflow-y-auto custom-scroll pr-1">
+            <div className="p-3 bg-purple-500/5 border border-purple-500/10 rounded space-y-1.5 shrink-0">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Settings2 className="w-3.5 h-3.5 text-purple-400" />
+                  <span className="text-[10px] font-orbitron text-purple-400 tracking-widest uppercase">Behavioral_Matrix</span>
+                </div>
+                <button
+                  onClick={handleSavePersonalityExplicit}
+                  className={`px-2.5 py-1 rounded text-[9px] font-orbitron font-bold tracking-wider flex items-center gap-1.5 transition-all shadow-md active:scale-95 ${
+                    savePersonalitySaved 
+                      ? 'bg-emerald-500 text-black shadow-[0_0_12px_rgba(16,185,129,0.5)]' 
+                      : 'bg-purple-600 hover:bg-purple-500 text-white border border-purple-400/40 shadow-[0_0_12px_rgba(168,85,247,0.3)]'
+                  }`}
+                >
+                  {savePersonalitySaved ? (
+                    <>
+                      <Check className="w-3 h-3 text-black stroke-[3]" />
+                      SAVED_LOCALLY ✓
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-3 h-3" />
+                      SAVE_PERSONALITY
+                    </>
+                  )}
+                </button>
               </div>
-              <p className="text-[10px] text-slate-500 font-mono leading-relaxed">
-                Define the tone, attitude, and interaction protocols for JARVIS. This overrides the default neural behavior.
+              <p className="text-[10px] text-slate-400 font-mono leading-relaxed">
+                Select JARVIS personality matrix or customize below. Changes synchronize instantly.
               </p>
             </div>
-            <textarea
-              value={personality}
-              onChange={(e) => onUpdatePersonality(e.target.value)}
-              placeholder="Describe how JARVIS should behave, Sir..."
-              className="flex-1 bg-black/40 border border-white/10 rounded-lg p-4 text-[12px] font-sans text-slate-200 focus:border-purple-500/40 focus:outline-none transition-all resize-none custom-scroll leading-relaxed"
-            />
-            <div className="flex items-center justify-between p-3 bg-black/40 border border-white/5 rounded text-[8px] font-mono text-slate-500 uppercase tracking-widest">
+
+            {/* Personality Presets Selector */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 shrink-0">
+              {/* Preset 1: Pure Jarvis */}
+              {(() => {
+                const isPureActive = !personality.includes("ATTITUDE") && !personality.includes("EXPANDED EDITION");
+                return (
+                  <button
+                    onClick={() => {
+                      onUpdatePersonality(PURE_JARVIS_PROMPT);
+                      localStorage.setItem('jarvis_personality', PURE_JARVIS_PROMPT);
+                    }}
+                    className={`p-3 rounded-lg border transition-all text-left flex flex-col justify-between relative overflow-hidden group ${
+                      isPureActive 
+                        ? 'bg-cyan-500/15 border-cyan-400/60 shadow-[0_0_15px_rgba(6,182,212,0.15)]' 
+                        : 'bg-black/40 border-white/10 hover:border-cyan-500/40 hover:bg-white/[0.02]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-1.5">
+                        <Shield className={`w-3.5 h-3.5 ${isPureActive ? 'text-cyan-400' : 'text-slate-400'}`} />
+                        <span className={`text-[10px] font-orbitron font-bold uppercase tracking-wider ${isPureActive ? 'text-cyan-300' : 'text-slate-200'}`}>
+                          Pure Jarvis
+                        </span>
+                      </div>
+                      {isPureActive && <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" />}
+                    </div>
+                    <p className="text-[9px] font-sans text-slate-400 leading-snug mb-2">
+                      Formal, polite, elegant, ultra-loyal & highly intelligent assistant.
+                    </p>
+                    <span className={`text-[7px] font-mono px-1.5 py-0.5 rounded uppercase self-start ${
+                      isPureActive ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/30' : 'bg-white/5 text-slate-500'
+                    }`}>
+                      LOYAL_ASSISTANT
+                    </span>
+                  </button>
+                );
+              })()}
+
+              {/* Preset 2: Jarvis Attitude / Funny */}
+              {(() => {
+                const isAttitudeActive = personality.includes("ATTITUDE") || personality.includes("EXPANDED EDITION");
+                return (
+                  <button
+                    onClick={() => {
+                      onUpdatePersonality(TONY_ATTITUDE_PROMPT);
+                      localStorage.setItem('jarvis_personality', TONY_ATTITUDE_PROMPT);
+                    }}
+                    className={`p-3 rounded-lg border transition-all text-left flex flex-col justify-between relative overflow-hidden group ${
+                      isAttitudeActive 
+                        ? 'bg-purple-500/15 border-purple-400/60 shadow-[0_0_15px_rgba(168,85,247,0.15)]' 
+                        : 'bg-black/40 border-white/10 hover:border-purple-500/40 hover:bg-white/[0.02]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-1.5">
+                        <Flame className={`w-3.5 h-3.5 ${isAttitudeActive ? 'text-purple-400 animate-pulse' : 'text-slate-400'}`} />
+                        <span className={`text-[10px] font-orbitron font-bold uppercase tracking-wider ${isAttitudeActive ? 'text-purple-300' : 'text-slate-200'}`}>
+                          Jarvis Attitude / Funny
+                        </span>
+                      </div>
+                      {isAttitudeActive && <CheckCircle2 className="w-3.5 h-3.5 text-purple-400" />}
+                    </div>
+                    <p className="text-[9px] font-sans text-slate-400 leading-snug mb-2">
+                      Extroverted, witty, sarcastic, hilarious best friend with 100% comedy & energy!
+                    </p>
+                    <span className={`text-[7px] font-mono px-1.5 py-0.5 rounded uppercase self-start ${
+                      isAttitudeActive ? 'bg-purple-500/20 text-purple-300 border border-purple-400/30' : 'bg-white/5 text-slate-500'
+                    }`}>
+                      JARVIS_ATTITUDE_V3
+                    </span>
+                  </button>
+                );
+              })()}
+            </div>
+
+            {/* Prompt Customization Area */}
+            <div className="flex-1 min-h-[140px] flex flex-col gap-1.5 shrink-0">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-[9px] font-orbitron text-slate-400 uppercase tracking-widest">Active_Prompt_Buffer</span>
+                <button
+                  onClick={handleSavePersonalityExplicit}
+                  className="text-[9px] font-orbitron text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                >
+                  <Save className="w-2.5 h-2.5" />
+                  Save Changes
+                </button>
+              </div>
+              <textarea
+                value={personality}
+                onChange={(e) => onUpdatePersonality(e.target.value)}
+                placeholder="Describe how JARVIS should behave, Sir..."
+                className="flex-1 bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] font-sans text-slate-200 focus:border-purple-500/40 focus:outline-none transition-all resize-none custom-scroll leading-relaxed"
+              />
+            </div>
+
+            <div className="flex items-center justify-between p-2.5 bg-black/40 border border-white/5 rounded text-[8px] font-mono text-slate-500 uppercase tracking-widest shrink-0">
               <span>Status: Synchronized</span>
-              <span className="text-purple-400">ACTIVE_PROTOCOL</span>
+              <span className="text-purple-400">
+                {personality.includes("ATTITUDE") ? 'JARVIS_ATTITUDE_MODE_ACTIVE' : 'PURE_JARVIS_ACTIVE'}
+              </span>
             </div>
           </div>
         )}
 
         {activeTab === 'IDENTITY' && (
-          <div className="h-full flex flex-col gap-4 animate-in fade-in duration-300">
-            <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded space-y-3">
-              <div className="flex items-center gap-2">
-                <UserCircle className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="text-[10px] font-orbitron text-emerald-400 tracking-widest uppercase">Operator_Profile</span>
+          <div className="h-full flex flex-col gap-3 animate-in fade-in duration-300 overflow-y-auto custom-scroll pr-1">
+            <div className="p-3 bg-emerald-500/5 border border-emerald-500/10 rounded space-y-1.5 shrink-0">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <UserCircle className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-[10px] font-orbitron text-emerald-400 tracking-widest uppercase">Operator_Profile</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      onUpdateIdentity(DEFAULT_VIRAT_PROFILE);
+                      localStorage.setItem('jarvis_identity', DEFAULT_VIRAT_PROFILE);
+                    }}
+                    className="px-2 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 rounded text-[9px] font-orbitron text-emerald-300 transition-all flex items-center gap-1 active:scale-95"
+                  >
+                    <Sparkles className="w-2.5 h-2.5" />
+                    RESET_VIRAT_PROFILE
+                  </button>
+                  <button
+                    onClick={handleSaveIdentityExplicit}
+                    className={`px-2.5 py-1 rounded text-[9px] font-orbitron font-bold tracking-wider flex items-center gap-1.5 transition-all shadow-md active:scale-95 ${
+                      saveIdentitySaved 
+                        ? 'bg-emerald-500 text-black shadow-[0_0_12px_rgba(16,185,129,0.5)]' 
+                        : 'bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-400/40 shadow-[0_0_12px_rgba(16,185,129,0.3)]'
+                    }`}
+                  >
+                    {saveIdentitySaved ? (
+                      <>
+                        <Check className="w-3 h-3 text-black stroke-[3]" />
+                        SAVED_LOCALLY ✓
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-3 h-3" />
+                        SAVE_IDENTITY
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
-              <p className="text-[10px] text-slate-500 font-mono leading-relaxed">
-                Provide details about yourself (name, role, preferences) so JARVIS recognizes you and your objectives.
+              <p className="text-[10px] text-slate-400 font-mono leading-relaxed">
+                Core user identity for Virat Sir. Personalizes speech, behavior, goals, and technical responses.
               </p>
             </div>
             <textarea
               value={userIdentity}
               onChange={(e) => onUpdateIdentity(e.target.value)}
               placeholder="Who are you, Sir? Provide your details here..."
-              className="flex-1 bg-black/40 border border-white/10 rounded-lg p-4 text-[12px] font-sans text-slate-200 focus:border-emerald-500/40 focus:outline-none transition-all resize-none custom-scroll leading-relaxed"
+              className="flex-1 min-h-[220px] bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] font-sans text-slate-200 focus:border-emerald-500/40 focus:outline-none transition-all resize-none custom-scroll leading-relaxed"
             />
-            <div className="flex items-center justify-between p-3 bg-black/40 border border-white/5 rounded text-[8px] font-mono text-slate-500 uppercase tracking-widest">
+            <div className="flex items-center justify-between p-2.5 bg-black/40 border border-white/5 rounded text-[8px] font-mono text-slate-500 uppercase tracking-widest shrink-0">
               <span>Link: Biometric_Secure</span>
-              <span className="text-emerald-400">IDENTIFIED</span>
+              <span className="text-emerald-400">
+                {userIdentity.includes("Virat Prajapati") ? "VIRAT_PRAJAPATI_VERIFIED" : "CUSTOM_OPERATOR_ACTIVE"}
+              </span>
             </div>
           </div>
         )}

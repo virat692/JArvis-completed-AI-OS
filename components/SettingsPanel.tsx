@@ -1,6 +1,7 @@
 
-import React from 'react';
-import { X, Shield, Cpu, Zap, Radio, Volume2, MessageSquare, Gauge, Trash2, MonitorCheck, Palette } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Shield, Cpu, Zap, Radio, Volume2, MessageSquare, Gauge, Trash2, MonitorCheck, Palette, Key, Eye, EyeOff, CheckCircle2, AlertTriangle, RefreshCw, Layers } from 'lucide-react';
+import { AVAILABLE_OPENROUTER_MODELS, testOpenRouterKey } from '../services/openRouterService';
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -14,6 +15,11 @@ interface SettingsPanelProps {
   theme?: 'cyber' | 'slate' | 'minimal' | 'gold';
   setTheme?: (val: 'cyber' | 'slate' | 'minimal' | 'gold') => void;
   onClearLogs?: () => void;
+  openRouterKey?: string;
+  setOpenRouterKey?: (val: string) => void;
+  openRouterModel?: string;
+  setOpenRouterModel?: (val: string) => void;
+  activeProvider?: 'gemini' | 'openrouter';
 }
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ 
@@ -27,13 +33,31 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
   setTimezone,
   theme = 'cyber',
   setTheme,
-  onClearLogs
+  onClearLogs,
+  openRouterKey = '',
+  setOpenRouterKey,
+  openRouterModel = 'google/gemini-2.0-flash-lite-001',
+  setOpenRouterModel,
+  activeProvider = 'gemini'
 }) => {
+  const [showKey, setShowKey] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<'success' | 'failed' | null>(null);
+
   if (!isOpen) return null;
 
   const isSlate = theme === 'slate';
   const isMinimal = theme === 'minimal';
   const isGold = theme === 'gold';
+
+  const handleTestConnection = async () => {
+    if (!openRouterKey.trim()) return;
+    setIsTesting(true);
+    setTestResult(null);
+    const ok = await testOpenRouterKey(openRouterKey, openRouterModel);
+    setIsTesting(false);
+    setTestResult(ok ? 'success' : 'failed');
+  };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-300">
@@ -182,6 +206,112 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   <option key={tz} value={tz}>{tz}</option>
                 ))}
               </select>
+            </div>
+          </div>
+
+          {/* OpenRouter Dual Failover Architecture */}
+          <div className="pt-6 border-t border-white/5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className={`text-[10px] font-orbitron uppercase tracking-widest flex items-center gap-2 ${
+                isSlate ? 'text-zinc-400 font-bold' : isMinimal ? 'text-emerald-400 font-bold' : isGold ? 'text-amber-400 font-bold' : 'text-cyan-400 font-bold'
+              }`}>
+                <Layers className="w-3.5 h-3.5" /> Dual_LLM_Failover_Protocol
+              </h3>
+              <div className={`px-2.5 py-0.5 rounded-full text-[9px] font-mono font-bold flex items-center gap-1.5 border ${
+                activeProvider === 'openrouter'
+                  ? 'bg-purple-500/20 text-purple-300 border-purple-500/40 shadow-[0_0_10px_rgba(168,85,247,0.3)]'
+                  : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-[0_0_10px_rgba(16,185,129,0.3)]'
+              }`}>
+                <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${
+                  activeProvider === 'openrouter' ? 'bg-purple-400' : 'bg-emerald-400'
+                }`} />
+                {activeProvider === 'openrouter' ? 'OPENROUTER FAILOVER ACTIVE' : 'GEMINI PRIMARY (FAILOVER READY)'}
+              </div>
+            </div>
+
+            <p className="text-[10px] font-mono text-slate-400 leading-relaxed">
+              Whenever Gemini quota exceeds or rate limits occur, JARVIS automatically fails over to OpenRouter without interrupting your task.
+            </p>
+
+            <div className={`p-4 rounded-2xl border space-y-3.5 ${
+              isSlate ? 'bg-zinc-800/60 border-slate-700' : 'bg-slate-900/80 border-slate-800'
+            }`}>
+              {/* API Key Field */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-orbitron font-bold text-slate-300 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5"><Key className="w-3 h-3 text-cyan-400" /> OPENROUTER_API_KEY</span>
+                  {openRouterKey ? (
+                    <span className="text-[9px] font-mono text-emerald-400 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> Key Configured
+                    </span>
+                  ) : (
+                    <span className="text-[9px] font-mono text-amber-400 flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3" /> Key Required
+                    </span>
+                  )}
+                </label>
+                <div className="relative flex items-center">
+                  <input
+                    type={showKey ? 'text' : 'password'}
+                    value={openRouterKey}
+                    onChange={(e) => setOpenRouterKey && setOpenRouterKey(e.target.value)}
+                    placeholder="sk-or-v1-..."
+                    className={`w-full pr-24 pl-3 py-2 text-[10px] font-mono rounded-xl border focus:outline-none transition-all ${
+                      isSlate 
+                        ? 'bg-zinc-900 border-slate-700 text-zinc-100 focus:border-zinc-400' 
+                        : 'bg-black/60 border-cyan-500/30 text-cyan-300 focus:border-cyan-400'
+                    }`}
+                  />
+                  <div className="absolute right-2 flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowKey(!showKey)}
+                      className="p-1 text-slate-400 hover:text-white transition-colors"
+                      title={showKey ? 'Hide key' : 'Show key'}
+                    >
+                      {showKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleTestConnection}
+                      disabled={isTesting || !openRouterKey.trim()}
+                      className="px-2 py-1 text-[9px] font-orbitron font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 rounded-lg hover:bg-cyan-500/30 disabled:opacity-40 transition-all flex items-center gap-1"
+                    >
+                      {isTesting ? <RefreshCw className="w-3 h-3 animate-spin" /> : 'TEST'}
+                    </button>
+                  </div>
+                </div>
+                {testResult === 'success' && (
+                  <p className="text-[9px] font-mono text-emerald-400 flex items-center gap-1 mt-1">
+                    <CheckCircle2 className="w-3 h-3" /> OpenRouter connection verified successfully!
+                  </p>
+                )}
+                {testResult === 'failed' && (
+                  <p className="text-[9px] font-mono text-rose-400 flex items-center gap-1 mt-1">
+                    <AlertTriangle className="w-3 h-3" /> Connection failed. Please check your OpenRouter API key.
+                  </p>
+                )}
+              </div>
+
+              {/* Failover Model Picker */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-orbitron font-bold text-slate-300 flex items-center gap-1.5">
+                  <Cpu className="w-3 h-3 text-purple-400" /> FAILOVER_MODEL_SELECTION
+                </label>
+                <select
+                  value={openRouterModel}
+                  onChange={(e) => setOpenRouterModel && setOpenRouterModel(e.target.value)}
+                  className={`w-full border rounded-xl px-3 py-2 text-[10px] font-mono focus:outline-none transition-all ${
+                    isSlate
+                      ? 'bg-zinc-900 border-slate-700 text-zinc-200 focus:border-zinc-400'
+                      : 'bg-black/60 border-purple-500/30 text-purple-300 focus:border-purple-400'
+                  }`}
+                >
+                  {AVAILABLE_OPENROUTER_MODELS.map(m => (
+                    <option key={m.id} value={m.id}>{m.name} ({m.id})</option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
