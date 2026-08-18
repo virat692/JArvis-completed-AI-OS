@@ -3,7 +3,8 @@
   "description": "A high-level cognitive AI assistant inspired by JARVIS, featuring multimodal vision, real-time voice, and persistent memory.",
   "requestFramePermissions": [
     "camera",
-    "microphone"
+    "microphone",
+    "display-capture"
   ],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

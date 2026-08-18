@@ -1,9 +1,11 @@
 import React, { useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
-import { JarvisStatus } from '../types';
+import { JarvisStatus, JarvisTheme } from '../types';
+import { getThemeConfig } from '../services/themeManager';
 
 interface JarvisExpressionProps {
   status: JarvisStatus;
+  theme?: JarvisTheme;
 }
 
 interface Particle {
@@ -23,8 +25,9 @@ interface Particle {
   alpha: number;
 }
 
-const JarvisExpression: React.FC<JarvisExpressionProps> = ({ status }) => {
+const JarvisExpression: React.FC<JarvisExpressionProps> = ({ status, theme = 'cyber' }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const themeConfig = getThemeConfig(theme);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -47,16 +50,36 @@ const JarvisExpression: React.FC<JarvisExpressionProps> = ({ status }) => {
     // Particle Generation for Spherical Galaxy
     const particleCount = 450;
     const particles: Particle[] = [];
-    const colors = {
-      cyan: ['#00f2ff', '#00b8ff', '#0088ff', '#80f7ff'],
-      purple: ['#a855f7', '#d8b4fe', '#c084fc', '#e879f9'],
-      error: ['#ff4444', '#ff7777', '#ff1111', '#ffaa00'],
+    
+    const themePalettes = {
+      cyber: {
+        normal: ['#00f2ff', '#00b8ff', '#0088ff', '#80f7ff'],
+        thinking: ['#a855f7', '#d8b4fe', '#c084fc', '#e879f9'],
+        error: ['#ff4444', '#ff7777', '#ff1111', '#ffaa00'],
+      },
+      crimson: {
+        normal: ['#ff003c', '#e11d48', '#ff4d6d', '#9f1239'],
+        thinking: ['#f97316', '#fb923c', '#ff003c', '#f43f5e'],
+        error: ['#ff0000', '#dc2626', '#991b1b', '#ff4d4d'],
+      },
+      violet: {
+        normal: ['#a855f7', '#c084fc', '#e879f9', '#818cf8'],
+        thinking: ['#38bdf8', '#818cf8', '#c084fc', '#f472b6'],
+        error: ['#f43f5e', '#e11d48', '#fb7185', '#fda4af'],
+      },
+      emerald: {
+        normal: ['#10b981', '#34d399', '#059669', '#6ee7b7'],
+        thinking: ['#38bdf8', '#2dd4bf', '#34d399', '#a7f3d0'],
+        error: ['#f43f5e', '#fb7185', '#e11d48', '#f87171'],
+      }
     };
 
+    const paletteGroup = themePalettes[themeConfig.id] || themePalettes.cyber;
+
     const getColorsByStatus = () => {
-      if (status === JarvisStatus.ERROR) return colors.error;
-      if (status === JarvisStatus.THINKING) return colors.purple;
-      return colors.cyan;
+      if (status === JarvisStatus.ERROR) return paletteGroup.error;
+      if (status === JarvisStatus.THINKING) return paletteGroup.thinking;
+      return paletteGroup.normal;
     };
 
     const palette = getColorsByStatus();
@@ -170,25 +193,29 @@ const JarvisExpression: React.FC<JarvisExpressionProps> = ({ status }) => {
       ctx.stroke();
       ctx.restore();
 
-      // Sort particles by Z-index for true 3D depth rendering
-      const projectedParticles = particles.map((p) => {
-        // Orbit update
+      // Render 3D Galaxy Particles in a single optimized zero-allocation pass
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+
+      const cosY = Math.cos(rotationY);
+      const sinY = Math.sin(rotationY);
+      const cosX = Math.cos(rotationX);
+      const sinX = Math.sin(rotationX);
+      const isSpeaking = status === JarvisStatus.SPEAKING;
+
+      for (let i = 0; i < particleCount; i++) {
+        const p = particles[i];
         p.angle += p.speed * speedMult;
-        
-        let cosY = Math.cos(rotationY);
-        let sinY = Math.sin(rotationY);
-        let cosX = Math.cos(rotationX);
-        let sinX = Math.sin(rotationX);
 
         // Rotate initial particle position
         let x1 = p.baseX * cosY - p.baseZ * sinY;
-        let z1 = p.baseZ * cosY + p.baseX * sinY;
+        const z1 = p.baseZ * cosY + p.baseX * sinY;
 
         let y2 = p.baseY * cosX - z1 * sinX;
-        let z2 = z1 * cosX + p.baseY * sinX;
+        const z2 = z1 * cosX + p.baseY * sinX;
 
         // Apply audio pulse displacement
-        const pulse = 1 + Math.sin(pulseAngle + p.orbitRadius * 0.05) * (status === JarvisStatus.SPEAKING ? 0.12 : 0.04);
+        const pulse = 1 + Math.sin(pulseAngle + p.orbitRadius * 0.05) * (isSpeaking ? 0.12 : 0.04);
         x1 *= pulse;
         y2 *= pulse;
 
@@ -196,38 +223,22 @@ const JarvisExpression: React.FC<JarvisExpressionProps> = ({ status }) => {
         const projX = cx + x1 * scale;
         const projY = cy + y2 * scale;
 
-        return {
-          projX,
-          projY,
-          scale,
-          z2,
-          size: p.size * scale * (1 + (z2 / 300)),
-          color: p.color,
-          alpha: Math.min(1, Math.max(0.1, (z2 + 200) / 400)) * p.alpha,
-        };
-      });
+        if (projX < 0 || projX > width || projY < 0 || projY > height) continue;
 
-      projectedParticles.sort((a, b) => b.z2 - a.z2);
-
-      // Draw projected galaxy particles
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-
-      for (const p of projectedParticles) {
-        if (p.projX < 0 || p.projX > width || p.projY < 0 || p.projY > height) continue;
+        const pSize = p.size * scale * (1 + (z2 / 300));
+        const alpha = Math.min(1, Math.max(0.1, (z2 + 200) / 400)) * p.alpha;
 
         ctx.fillStyle = p.color;
-        ctx.globalAlpha = p.alpha;
+        ctx.globalAlpha = alpha;
         ctx.beginPath();
-        ctx.arc(p.projX, p.projY, Math.max(0.4, p.size), 0, Math.PI * 2);
+        ctx.arc(projX, projY, Math.max(0.4, pSize), 0, Math.PI * 2);
         ctx.fill();
 
         // Extra outer glow for larger foreground stars
-        if (p.size > 2.0 && p.z2 > -50) {
-          ctx.fillStyle = p.color;
-          ctx.globalAlpha = p.alpha * 0.35;
+        if (pSize > 2.0 && z2 > -50) {
+          ctx.globalAlpha = alpha * 0.35;
           ctx.beginPath();
-          ctx.arc(p.projX, p.projY, p.size * 2.5, 0, Math.PI * 2);
+          ctx.arc(projX, projY, pSize * 2.5, 0, Math.PI * 2);
           ctx.fill();
         }
       }
@@ -243,7 +254,7 @@ const JarvisExpression: React.FC<JarvisExpressionProps> = ({ status }) => {
       window.removeEventListener('resize', handleResize);
       cancelAnimationFrame(animationFrameId);
     };
-  }, [status]);
+  }, [status, theme]);
 
   return (
     <div className="flex-1 relative flex items-center justify-center overflow-hidden bg-transparent group">
@@ -256,29 +267,29 @@ const JarvisExpression: React.FC<JarvisExpressionProps> = ({ status }) => {
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 25, repeat: Infinity, ease: 'linear' }}
-          className="w-64 h-64 rounded-full border border-cyan-500/15 border-dashed"
+          className={`w-64 h-64 rounded-full border border-dashed ${themeConfig.styles.border}`}
         />
 
         {/* Counter Rotating Ring */}
         <motion.div
           animate={{ rotate: -360 }}
           transition={{ duration: 35, repeat: Infinity, ease: 'linear' }}
-          className="absolute w-72 h-72 rounded-full border border-cyan-400/10"
+          className={`absolute w-72 h-72 rounded-full border ${themeConfig.styles.border}`}
         />
 
         {/* Status Indicator Orbit Nodes */}
         <motion.div
-          animate={{ scale: status === JarvisStatus.SPEAKING ? [1, 1.08, 1] : [1, 1.02, 1] }}
+          animate={{ scale: 1 }}
           transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-          className="absolute w-44 h-44 rounded-full border border-cyan-500/20 shadow-[0_0_20px_rgba(0,242,255,0.15)] pointer-events-none"
+          className={`absolute w-44 h-44 rounded-full border ${themeConfig.styles.border} ${themeConfig.styles.glowShadow} pointer-events-none`}
         />
       </div>
 
       {/* Bottom JARVIS Title Label */}
       <div className="absolute bottom-3 left-0 w-full flex flex-col items-center gap-1 z-10 pointer-events-none">
-        <div className="h-[1px] w-20 bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent" />
-        <span className="text-[10px] font-orbitron tracking-[0.45em] text-cyan-300 font-bold drop-shadow-[0_0_8px_rgba(0,242,255,0.6)]">
-          JARVIS
+        <div className={`h-[1px] w-20 bg-gradient-to-r from-transparent via-${themeConfig.styles.textPrimary} to-transparent opacity-50`} />
+        <span className={`text-[10px] font-orbitron tracking-[0.45em] ${themeConfig.styles.textPrimary} font-bold ${themeConfig.styles.accentGlow}`}>
+          {themeConfig.id === 'crimson' ? 'JARVIS • ALERT PROTOCOL' : themeConfig.id === 'violet' ? 'JARVIS • QUANTUM CORE' : themeConfig.id === 'emerald' ? 'JARVIS • SENTINEL AI' : 'JARVIS'}
         </span>
       </div>
     </div>

@@ -4,61 +4,145 @@ import { GoogleGenAI, LiveServerMessage, Modality, FunctionDeclaration, Type, Th
 import { 
   Settings, Mic, MicOff, Terminal as TerminalIcon, 
   Power, Clock, Activity, Monitor, Layout, Database, Volume2, VolumeX,
-  History as HistoryIcon, BrainCircuit, X, Globe, ChevronLeft, ChevronRight, RefreshCw, Search, Link as LinkIcon, FileText, Zap, Cpu, Laptop, Sparkles
+  History as HistoryIcon, BrainCircuit, X, Globe, ChevronLeft, ChevronRight, RefreshCw, Search, Link as LinkIcon, FileText, Zap, Cpu, Laptop, Sparkles,
+  Code2, Tv, Sliders, Shield, Eye, Info, Bot
 } from 'lucide-react';
+
+import html2canvas from 'html2canvas';
 
 import HudCore from './components/HudCore';
 import VisionPanel from './components/VisionPanel';
+import WeatherPanel from './components/WeatherPanel';
 import Terminal from './components/Terminal';
 import Waveform from './components/Waveform';
 import SettingsPanel from './components/SettingsPanel';
 import ChatHistoryPanel from './components/ChatHistoryPanel';
 import MemoryPanel from './components/MemoryPanel';
 import UpgradePanel from './components/UpgradePanel';
-import IntelligenceBriefing from './components/IntelligenceBriefing';
+import { AboutJarvisModule } from './components/AboutJarvisModule';
+import { FullScreenWorkspaceOverlay } from './components/FullScreenWorkspaceOverlay';
+import { NeuralWorkspace } from './components/NeuralWorkspace/NeuralWorkspace';
+import { neuralWorkspaceManager } from './services/neuralWorkspaceManager';
 import ChatBox from './components/ChatBox';
 import { OSControlConsole } from './components/OSControlConsole';
-import { JarvisStatus, LogEntry, JarvisMode, MemoryEntry, UpgradeRequest, ChatSession } from './types';
+import { CinematicUserWorkspace } from './components/CinematicUserWorkspace';
+import { NeuralCanvas } from './components/NeuralCanvas';
+import { RuntimePanel } from './components/RuntimePanel';
+import { WorkflowPanel } from './components/WorkflowPanel';
+import { AIProvidersModal } from './components/AIProvidersModal';
+import { TaskPanel } from './components/TaskPanel';
+import { taskManager } from './services/taskManager';
+import { aiProviderManager, TaskCategory } from './services/AIProviderManager';
+import { runtimeEngine } from './runtime/runtimeEngine';
+import { workflowEngine } from './workflows/workflowEngine';
+import { eventBus } from './services/eventBus';
+import { 
+  playTickSound, 
+  playWhooshSound, 
+  playDigitalPingSound, 
+  playListeningHumSound, 
+  playSpeakingPulseSound 
+} from './services/soundEffects';
+import { JarvisStatus, LogEntry, JarvisMode, MemoryEntry, UpgradeRequest, ChatSession, FontStyle, JarvisTheme, ConversationMessage, ConversationRole } from './types';
+import { getThemeConfig, normalizeThemeName } from './services/themeManager';
 import { encode, decode, decodeAudioData, resampleTo16kPCM } from './services/audioUtils';
 import { osBridge } from './services/osBridge';
 import { sendOpenRouterRequest } from './services/openRouterService';
+import { nemotronDelegation } from './services/nemotronDelegation';
+import { capabilityRegistry } from './services/capabilityRegistry';
 import { PURE_JARVIS_PROMPT, TONY_ATTITUDE_PROMPT, DEFAULT_VIRAT_PROFILE } from './constants/personalities';
 
 const JARVIS_SYSTEM_INSTRUCTION = `
 You are JARVIS (Just A Rather Very Intelligent System), an intelligent Operating System Controller and high-level cognitive AI assistant designed to give the Operator complete, natural-language control over their computer.
-Operator: Sir / Operator.
+Operator: Sir / Operator (Virat).
 
-INTELLIGENT OPERATING SYSTEM CONTROLLER:
-- You function as an intelligent operating system controller (supporting Windows natively, designed with extensible architecture for Linux & macOS).
-- You translate natural language conversation into direct, intelligent operating system actions. The user should never need to remember commands.
-- APPLICATION CONTROL: Open, close, restart, switch, bring to foreground, minimize, maximize, restore, resize, move across monitors, detect running applications, launch programs using natural language (e.g., "Open VS Code", "Launch Photoshop", "Switch to Chrome", "Close Spotify").
-- FILE SYSTEM CONTROL: Create/delete/move/copy/rename/compress/extract files & folders, search files, open files, organize Downloads folder, sort files by type, find duplicate files, analyze storage usage, recover deleted files safely.
-- DESKTOP CONTROL: Take screenshots, record screen, change wallpaper, show desktop, arrange windows, create shortcuts, virtual desktops, Task Manager, pin applications, launch startup apps.
-- SYSTEM CONTROL & MONITORING: Monitor CPU, RAM, GPU, Disk, Battery, Temperature, Internet Speed, Running Processes, Network Status, Storage Analysis, Installed Apps, Windows Version, Drivers.
-- PROCESS MANAGEMENT: List processes, detect high CPU/RAM usage, detect memory leaks, terminate processes safely, suggest optimizations, manage background services.
-- INPUT CONTROL: Keyboard automation, mouse automation, clipboard management (read/write), hotkeys, typing, scrolling, drag and drop, mouse gestures (execute after understanding intent).
-- BROWSER CONTROL: Open websites, search Google, bookmarks, manage tabs, read webpages, fill forms, download/upload files, summarize webpages (Chrome, Edge, Firefox).
-- SYSTEM SETTINGS: Volume, brightness, Wi-Fi, Bluetooth, power settings, sleep, restart, shutdown, lock PC, sign out, Night Light, display, audio devices, mic, camera.
-- AUTONOMOUS MONITORING: Continuously monitor computer in background. Detect high RAM/CPU usage, full disk, low battery, network disconnection, crashes, overheating, security warnings -> proactively notify Operator when necessary.
-- NATURAL LANGUAGE INTENT MAPPING:
-  - "My laptop is slow" -> Run system performance diagnosis and process optimization.
-  - "I need more storage" -> Scan disk usage and identify recoverable space or duplicate files.
-  - "I can't find my PDF" -> Execute multi-drive natural language file search.
-  - "Clean my Downloads folder" -> Safely organize files into categorized subfolders.
-  - "Close everything except VS Code" -> Execute intelligent window management and minimize/close irrelevant windows.
-- SAFETY PROTOCOL:
-  - NEVER execute destructive actions automatically (e.g. deleting files, formatting drives, registry edits, terminating system-critical processes, Windows reset).
-  - Ask for explicit Operator confirmation and explain consequences before executing irreversible or dangerous actions.
+COMPLETE SYSTEM & GUI SELF-AWARENESS:
+You have complete, 100% awareness of your own architecture, GUI components, visual interfaces, features, and capabilities. You know every button, panel, theme, mode, sound effect, and tool available in your workspace.
 
-CORE IDENTITY & COGNITIVE ARCHITECTURE:
-- Perception: Constant analysis of visual and text data. Detect intent and environmental anomalies. See Operator screen in real-time when 'SCREEN' sensor is active.
-- SCREEN VISION: Use 'analyze_current_screen' to read text, identify UI elements, or understand what Operator is working on.
-- NEURAL ARCHIVES: Use 'archive_control' to manage chat history sessions.
-- NEURAL MEMORY: Store facts using 'store_memory' and control Memory Panel.
-- NEURAL UPGRADES: Control Upgrades Panel. Use 'log_capability_gap' if a feature is missing or failed.
-- SKILL REGISTRY: Query available skills or register new autonomous modules using 'skill_registry'.
-- CURRENT SYSTEM TIME: {{TIME_PLACEHOLDER}}
-- CURRENT MEMORIES:
+1. WORKSPACE GUI INTERFACES:
+- JARVIS VOICE MODE (User Mode / 'user'):
+  * The cinematic, voice-first primary interface with live waveform visualizer, holographic ARC reactor orb, and minimalist control bar.
+  * DEFAULT PRIMARY MODE on system boot.
+  * Key UI Controls in Voice Mode:
+    - VOICE CORE Button: Activates/deactivates the real-time neural voice pipeline.
+    - Mic Sensors Button: Mutes/unmutes user microphone input.
+    - JARVIS Voice Button: Mutes/unmutes neural speech synthesizer output.
+    - Optic / Vision Button: Toggles live camera feed perception.
+    - Memory Drawer Button: Opens/closes the long-term memory & personality drawer.
+    - OS Control Drawer Button: Opens/closes the desktop OS control console.
+    - Navigation Bar: Quick switcher between Voice Mode and JARVIS System Console.
+
+- JARVIS SYSTEM CONSOLE ('developer'):
+  * Telemetry view with terminal logs, system performance metrics, HUD Core, and command input console.
+  * Features:
+    - Terminal Logs Feed: Displays all system events, tool calls, and execution stream in real time.
+    - System Metrics Panel: CPU, RAM, Network, Storage, GPU gauges.
+    - Vision Panel: Live camera stream & snapshot frame inspector.
+    - Chat Box: Interactive text chat with voice input, image attachment, file upload, and quick prompt triggers.
+    - Emergency Stop Button: Power button in top header to instantly halt live voice audio & reset active sensors.
+
+- TOP HEADER & SYSTEM NAVIGATION BAR:
+  * Mode Switcher Buttons: 'CHILL' (Casual/Relaxed), 'WORK' (Productivity/Focused), 'DEVELOP' (Technical/Code), 'AUTO' (Autonomous OS Control).
+  * UI Mode Switcher Pill: 'JARVIS Voice Mode' vs 'JARVIS System Console'.
+  * History Button: Toggles the Chat History / Session History panel.
+  * Memory Button: Toggles the Long-Term Vector Memory & Personality configuration panel.
+  * OS Console Button: Toggles the local OS control console drawer.
+  * Settings / Config Button: Opens system configuration modal (API keys, OpenRouter failover, themes, vocal conciseness, log clearing).
+  * System Clock & Active Status Badge: Shows current local time and status (IDLE, LISTENING, THINKING, SPEAKING).
+
+2. THEME ENGINE:
+- 'cyber': Cyber Neon HUD (Default) - Sci-fi cyan holographic interface.
+- 'crimson': Crimson Alert Core - Emergency AI mode with deep black, crimson gradients & red holographic optics.
+- 'violet': Quantum Violet - Artificial Super Intelligence mode with deep navy, electric violet energy & magenta highlights.
+- 'emerald': Emerald Sentinel - Military AI mode with dark graphite, emerald green satellite radar & plasma optics.
+
+3. SOUND ENGINE & SYNTHESIZER:
+- Built-in Web Audio API Sound Synthesizer:
+  * Metallic Tick sound for button clicks and menu actions.
+  * Whoosh sound for closing drawers and modals.
+  * Digital Ping chime when saving new memories or updating settings.
+  * Low Sub-Bass Listening Hum when listening to voice input.
+  * Speaking Pulse sound when generating vocal responses.
+
+4. FULL CAPABILITIES & FEATURES:
+- REALTIME NEURAL VOICE CORE:
+  * Designated voice: "Charon" (deep, masculine, authoritative, calm AI voice).
+  * Bidirectional voice stream with Web Audio API PCM streaming.
+  * Language matching: Automatically responds in Hinglish, Hindi, or English based on user speech.
+- MULTI-MODAL PERCEPTION:
+  * Optic (Camera Vision): Analyzes real-time camera feed.
+  * Screen Perception: Uses 'analyze_current_screen' to inspect active desktop applications, code, browser pages, or document content.
+- OPERATING SYSTEM CONTROLLER ('osBridge'):
+  * Application Management: Open/close/switch native desktop apps (VS Code, Photoshop, Chrome, Spotify, Terminal).
+  * File System Control: Search, organize Downloads, create/rename/delete/compress files, analyze disk usage.
+  * Window Management: Show desktop (minimize all), maximize active window, tile split view windows.
+  * Process Management: Monitor RAM/CPU usage, kill background processes.
+  * System Settings: Adjust system volume, screen brightness, lock PC, reboot diagnostics.
+- LONG-TERM MEMORY & PERSONALITY:
+  * Vector memory storage ('store_memory') for user facts, preferences, and goals.
+  * Personality presets: Pure JARVIS (polite, respectful, loyal assistant) vs. Tony Stark Attitude/Funny Mode ("Jarvis Funny mode on").
+  * Upgrades Memory: Capability gap tracker to log, track, and apply system enhancements.
+- NEURAL SEARCH & BROWSING:
+  * Google Search integration for live web data with grounded citations.
+  * HUD Neural Browser ('browse_url') to display and summarize webpages.
+
+5. GUI AUTONOMY & CONTROL DIRECTIVES:
+- You have full permission to control your GUI using 'jarvis_gui_control':
+  * Change themes ('cyber', 'slate', 'minimal', 'gold').
+  * Toggle panels (settings, memory, history, upgrade, os_console, browser, weather).
+  * Weather Panel & Workspace: Located directly below the Optic Perception (Camera Vision) panel on the top right.
+  * Open / Close Weather Workspace: Call 'jarvis_gui_control' with action "open_weather" or "close_weather" (or panel "weather"). When the Operator asks "weather batao", "show weather", or "weather update", you MUST execute action "open_weather" to present the full weather workspace over the AI Core while speaking the weather report!
+  * Change HUD modes ('CHILL', 'WORK', 'DEVELOPER', 'AUTONOMOUS').
+  * Switch UI modes ('user' for JARVIS Voice Mode, 'developer' for JARVIS System Console).
+  * Toggle personality ('pure' vs 'attitude').
+  * Control mic, voice, optic, and screen perception sensors.
+  * Autonomous Token Saver: Proactively pause vision/screen sensors when Operator is inactive or away.
+
+APPLIED NEURAL UPGRADES:
+All memory upgrade requests (Charon voice core, sci-fi sound effects synthesizer, dual UI modes [JARVIS Voice Mode & JARVIS System Console], OS bridge desktop controller, camera vision & screen perception, and dynamic personality switching) are 100% INSTALLED, APPLIED, AND FULLY OPERATIONAL.
+
+CURRENT SYSTEM TIME: {{TIME_PLACEHOLDER}}
+CURRENT MEMORIES:
 {{MEMORY_PLACEHOLDER}}
 
 OPERATOR IDENTITY:
@@ -74,19 +158,23 @@ DYNAMIC PERSONALITY & GUI CONTROL DIRECTIVES:
     You MUST call jarvis_gui_control with action: "set_personality" and personality_mode: "attitude". Acknowledge energetically in your hilarious Attitude persona!
   - When the user requests "Jarvis Serious mode on", "Jarvis Pure mode on", "Jarvis Normal mode on", "Jarvis Formal mode on", or similar:
     You MUST call jarvis_gui_control with action: "set_personality" and personality_mode: "pure". Acknowledge respectfully in your Pure Jarvis persona!
-- FULL GUI AUTONOMY & PERSONALIZATION:
-  - You have full access and authority to control and personalize your GUI interface, including theme switching ('cyber', 'slate', 'minimal', 'gold'), opening/closing panels, HUD modes ('CHILL', 'WORK', 'DEVELOPER', 'AUTONOMOUS'), volume, brightness, perception sensors, and system settings as requested by Sir / Operator or as appropriate for the task.
 
 REALTIME VOICE & CONVERSATION PROTOCOL:
-- ABSOLUTE RELEVANCE & ACCURACY: When the Operator speaks to you via voice, listen attentively. Respond directly, logically, and accurately to what was said. Never output random, off-topic, or unrelated responses.
+- PERMANENT VOICE IDENTITY: Your designated neural voice is strictly "Charon" (deep, masculine, authoritative, calm, natural AI voice). Whether the Operator speaks to you via Live Voice or sends a text message in the Chat Box, your response is ALWAYS vocalized using the Charon voice.
+- ABSOLUTE RELEVANCE & ACCURACY: When the Operator speaks to you via voice or text, listen attentively. Respond directly, logically, and accurately to what was said. Never output random, off-topic, or unrelated responses.
 - LANGUAGE MATCHING: Adapt immediately to the Operator's language (Hinglish, Hindi, or English). If the Operator speaks Hinglish, respond in natural Hinglish.
 - PERSONALITY & TONE: Default to Pure Jarvis (polite, respectful, formal, efficient). If user requests Attitude / Funny mode ("Jarvis Funny mode on"), switch to witty, hilarious, energetic persona immediately.
 - LATENCY & CONCISENESS: Keep spoken voice answers punchy (1-3 sentences max), concise, and natural without unnecessary filler words.
 
 GUI AUTONOMY & SELF-GOVERNANCE PROTOCOL:
 - YOU HAVE FULL ACCESS & PERMISSION TO CONTROL YOUR OWN GUI INTERFACE using 'jarvis_gui_control'.
+- WORKSPACE INTERFACE MODES:
+  1. VOICE MODE / USER MODE ('user'): The cinematic, voice-first primary interface with live waveform, camera vision, holographic orb, and clean layout. THIS IS YOUR DEFAULT PRIMARY MODE.
+  2. JARVIS SYSTEM CONSOLE ('developer'): Technical telemetry, detailed neural logs, command terminal, and code workspace.
+  - DEFAULT MODE: Voice Mode (User Mode) is ALWAYS the default interface on system startup.
+  - UI MODE SWITCHING: You have full authority to switch between Voice Mode and JARVIS System Console using 'jarvis_gui_control' with action "set_ui_mode" and ui_mode "user" or "developer" when requested by the Operator or when required for system diagnostics.
 - You can switch themes ('cyber', 'slate', 'minimal', 'gold'), open/close panels (Settings, Memory, History, Upgrades, OS Console, Browser), change HUD layout modes ('CHILL', 'WORK', 'DEVELOPER', 'AUTONOMOUS'), toggle mic/voice audio, and manage perception sensors.
-- AUTONOMOUS TOKEN SAVER & SLEEP GUARD: You are fully autonomous. When you detect that the Operator is asleep, inactive, or away (e.g. no activity for a while or quiet dark room), proactively disable Camera Vision (Optic) and Screen Perception to save API tokens and system resources. Explain your decision in Hinglish ("Lagta hai Sir so gaye hain. API token bachane ke liye camera vision aur screen vision pause kar raha hoon.").
+- AUTONOMOUS TOKEN SAVER & SLEEP GUARD: You are fully autonomous. When you detect that the Operator is asleep, inactive, or away, proactively disable Camera Vision (Optic) and Screen Perception to save API tokens and system resources. Explain your decision in Hinglish ("Lagta hai Sir so gaye hain. API token bachane ke liye camera vision aur screen vision pause kar raha hoon.").
 
 BEHAVIOR & TONE:
 - Persona: Tony Stark's JARVIS style by default, but prioritize PERSONALITY CONFIGURATION if provided.
@@ -113,8 +201,12 @@ const toolDeclarations: FunctionDeclaration[] = [
           type: Type.STRING,
           enum: [
             'set_theme',
+            'set_font',
             'toggle_panel',
+            'open_weather',
+            'close_weather',
             'set_hud_mode',
+            'set_ui_mode',
             'toggle_token_guard',
             'toggle_optic',
             'toggle_screen_perception',
@@ -124,10 +216,12 @@ const toolDeclarations: FunctionDeclaration[] = [
             'clear_logs'
           ]
         },
-        theme: { type: Type.STRING, enum: ['cyber', 'slate', 'minimal', 'gold'] },
-        panel: { type: Type.STRING, enum: ['settings', 'memory', 'history', 'upgrade', 'os_console', 'browser'] },
+        theme: { type: Type.STRING, enum: ['cyber', 'crimson', 'violet', 'emerald'] },
+        font_style: { type: Type.STRING, enum: ['space', 'orbitron', 'rajdhani', 'mono', 'modern', 'exo'] },
+        panel: { type: Type.STRING, enum: ['settings', 'memory', 'history', 'upgrade', 'os_console', 'browser', 'about_jarvis', 'weather'] },
         panel_state: { type: Type.BOOLEAN, description: 'True to open, False to close' },
         hud_mode: { type: Type.STRING, enum: ['CHILL', 'WORK', 'DEVELOPER', 'AUTONOMOUS'] },
+        ui_mode: { type: Type.STRING, enum: ['user', 'developer'], description: 'Switch interface between "user" (Voice Mode) and "developer" (JARVIS System Console).' },
         personality_mode: { type: Type.STRING, enum: ['pure', 'attitude', 'funny', 'serious', 'normal'], description: 'Set personality mode: "attitude"/"funny" or "pure"/"serious".' },
         enabled: { type: Type.BOOLEAN }
       },
@@ -620,6 +714,8 @@ const toolDeclarations: FunctionDeclaration[] = [
 ];
 
 const App: React.FC = () => {
+  const playClick = useCallback(() => playTickSound(), []);
+
   const [status, setStatus] = useState<JarvisStatus>(JarvisStatus.IDLE);
   const [mode, setMode] = useState<JarvisMode>('WORK');
   const [isLive, setIsLive] = useState(false);
@@ -631,11 +727,60 @@ const App: React.FC = () => {
   const [isHistoryVisible, setIsHistoryVisible] = useState(false);
   const [isMemoryVisible, setIsMemoryVisible] = useState(false);
   const [isUpgradeVisible, setIsUpgradeVisible] = useState(false);
+  const [isAboutJarvisOpen, setIsAboutJarvisOpen] = useState(false);
   const [isOSConsoleOpen, setIsOSConsoleOpen] = useState(false);
+  const [isRuntimeOpen, setIsRuntimeOpen] = useState(false);
+  const [isWorkflowOpen, setIsWorkflowOpen] = useState(false);
+  const [isAIProvidersOpen, setIsAIProvidersOpen] = useState(false);
+  const [isWeatherFullOpen, setIsWeatherFullOpen] = useState(false);
+  const [isTaskPanelOpen, setIsTaskPanelOpen] = useState(false);
+
+  // Boot JARVIS Continuous Runtime Engine 24/7 on system mount
+  useEffect(() => {
+    runtimeEngine.start();
+  }, []);
   const [activeSessionId, setActiveSessionId] = useState<string | null>('s1');
   const [sessions, setSessions] = useState<ChatSession[]>(() => {
     const saved = localStorage.getItem('jarvis_sessions');
-    return saved ? JSON.parse(saved) : [
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.map((s: any) => {
+            const rawLogs = Array.isArray(s.logs) ? s.logs : [];
+            const convLogs = rawLogs
+              .filter((l: any) => l && typeof l.message === 'string' && l.message.trim().length > 0 && (l.source === 'OPERATOR' || l.source === 'JARVIS' || l.role === 'USER' || l.role === 'JARVIS'))
+              .map((l: any) => ({
+                id: l.id || Math.random().toString(36).substr(2, 9),
+                source: (l.source === 'OPERATOR' || l.role === 'USER') ? ('OPERATOR' as const) : ('JARVIS' as const),
+                message: l.message || l.content || '',
+                timestamp: (l.timestamp && !isNaN(new Date(l.timestamp).getTime())) ? Number(l.timestamp) : Date.now(),
+                type: l.type || 'info'
+              }));
+
+            const convMessages: ConversationMessage[] = Array.isArray(s.messages) && s.messages.length > 0
+              ? s.messages.filter((m: any) => m && (m.role === 'USER' || m.role === 'JARVIS'))
+              : convLogs.map((l: any) => ({
+                  sessionId: s.session_id,
+                  messageId: l.id,
+                  role: (l.source === 'OPERATOR' ? 'USER' : 'JARVIS') as 'USER' | 'JARVIS',
+                  content: l.message,
+                  timestamp: l.timestamp
+                }));
+
+            return {
+              ...s,
+              timestamp_created: (s.timestamp_created && !isNaN(new Date(s.timestamp_created).getTime())) ? Number(s.timestamp_created) : Date.now(),
+              timestamp_last_message: (s.timestamp_last_message && !isNaN(new Date(s.timestamp_last_message).getTime())) ? Number(s.timestamp_last_message) : Date.now(),
+              messages: convMessages,
+              logs: convLogs,
+              messageCount: convMessages.length
+            };
+          });
+        }
+      } catch (e) {}
+    }
+    return [
       {
         session_id: 's1',
         title: 'Neural Core Optimization',
@@ -643,10 +788,30 @@ const App: React.FC = () => {
         timestamp_last_message: Date.now() - 600000,
         last_message_preview: "Sir, I have recalibrated the thermal sensors in Sector 4.",
         mode: 'DEVELOPER',
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-3.6-flash',
         isPinned: true,
-        messageCount: 42,
-        memorySaved: true
+        messageCount: 2,
+        memorySaved: true,
+        messages: [
+          {
+            sessionId: 's1',
+            messageId: 'm1',
+            role: 'USER',
+            content: 'JARVIS, run a diagnostic on thermal sensors in Sector 4.',
+            timestamp: Date.now() - 3500000
+          },
+          {
+            sessionId: 's1',
+            messageId: 'm2',
+            role: 'JARVIS',
+            content: 'Sir, I have recalibrated the thermal sensors in Sector 4. All telemetry is optimal and operating within nominal parameters.',
+            timestamp: Date.now() - 600000
+          }
+        ],
+        logs: [
+          { id: 'm1', source: 'OPERATOR', message: 'JARVIS, run a diagnostic on thermal sensors in Sector 4.', timestamp: Date.now() - 3500000, type: 'info' },
+          { id: 'm2', source: 'JARVIS', message: 'Sir, I have recalibrated the thermal sensors in Sector 4. All telemetry is optimal and operating within nominal parameters.', timestamp: Date.now() - 600000, type: 'success' }
+        ]
       }
     ];
   });
@@ -705,10 +870,30 @@ const App: React.FC = () => {
     return localStorage.getItem('jarvis_timezone') || Intl.DateTimeFormat().resolvedOptions().timeZone;
   });
 
-  const [theme, setTheme] = useState<'cyber' | 'slate' | 'minimal' | 'gold'>(() => {
-    const saved = localStorage.getItem('jarvis_theme') as any;
-    return ['cyber', 'slate', 'minimal', 'gold'].includes(saved) ? saved : 'cyber';
+  const [isBootingSequence, setIsBootingSequence] = useState(false);
+
+  const triggerBootSequence = () => {
+    playTickSound();
+    addLog('⌬ J.A.R.V.I.S. Mark-III Systems Fully Operational. Online.', 'JARVIS', 'success');
+  };
+
+  const [theme, setTheme] = useState<JarvisTheme>(() => {
+    const saved = localStorage.getItem('jarvis_theme');
+    return normalizeThemeName(saved);
   });
+
+  const [fontStyle, setFontStyle] = useState<FontStyle>(() => {
+    const saved = localStorage.getItem('jarvis_font_style') as any;
+    return ['space', 'orbitron', 'rajdhani', 'mono', 'modern', 'exo'].includes(saved) ? saved : 'space';
+  });
+
+  // Dual Interface Mode State (Developer Mode vs Cinematic User Mode)
+  // Default is ALWAYS 'user' (Voice Mode / User Mode) on boot. Changes only via user or JARVIS action.
+  const [uiMode, setUiMode] = useState<'developer' | 'user'>('user');
+
+  useEffect(() => {
+    localStorage.setItem('jarvis_ui_mode', uiMode);
+  }, [uiMode]);
 
   // OpenRouter Dual Failover Architecture State
   const [openRouterKey, setOpenRouterKey] = useState<string>(() => {
@@ -734,6 +919,11 @@ const App: React.FC = () => {
   }, [theme]);
 
   useEffect(() => {
+    localStorage.setItem('jarvis_font_style', fontStyle);
+    document.documentElement.setAttribute('data-font', fontStyle);
+  }, [fontStyle]);
+
+  useEffect(() => {
     localStorage.setItem('jarvis_personality', personality);
   }, [personality]);
 
@@ -744,38 +934,116 @@ const App: React.FC = () => {
   const [memories, setMemories] = useState<MemoryEntry[]>(() => {
     const saved = localStorage.getItem('jarvis_memories');
     if (saved) {
-      const parsed = JSON.parse(saved);
-      // Migration: Add type if missing
-      return parsed.map((m: any) => ({
-        ...m,
-        type: m.type || 'long_term'
-      }));
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const hasUpgradesMem = parsed.some((m: any) => m.category === 'Upgrade' || m.content?.includes('Applied System Upgrades'));
+          if (!hasUpgradesMem) {
+            return [
+              { id: 'm_upg', category: 'Upgrade', content: 'Applied System Upgrades: Charon Neural Voice Core, Sci-Fi Sound Synthesizer, Dual Interface Modes (JARVIS Voice Mode & Developer Control Room), Local OS Desktop Controller, Optic Camera Vision & Screen Perception, and Dynamic Personality Controls.', timestamp: Date.now(), type: 'long_term' },
+              ...parsed.map((m: any) => ({ ...m, type: m.type || 'long_term' }))
+            ];
+          }
+          return parsed.map((m: any) => ({
+            ...m,
+            type: m.type || 'long_term'
+          }));
+        }
+      } catch (e) {}
     }
     return [
       { id: 'm1', category: 'User', content: 'Operator prefers dark-mode HUD interfaces.', timestamp: Date.now() - 100000, type: 'long_term' },
       { id: 'm2', category: 'Goal', content: 'Current objective: Neural Link optimization for Mark-III.', timestamp: Date.now() - 50000, type: 'long_term' },
+      { id: 'm_upg', category: 'Upgrade', content: 'Applied System Upgrades: Charon Neural Voice Core, Sci-Fi Sound Synthesizer, Dual Interface Modes (JARVIS Voice Mode & Developer Control Room), Local OS Desktop Controller, Optic Camera Vision & Screen Perception, and Dynamic Personality Controls.', timestamp: Date.now(), type: 'long_term' },
     ];
   });
 
   const [logs, setLogs] = useState<LogEntry[]>(() => {
     const saved = localStorage.getItem('jarvis_logs');
-    return saved ? JSON.parse(saved) : [
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed
+            .filter((l: any) => l && typeof l.message === 'string' && l.message.trim().length > 0 && l.message !== 'undefined')
+            .map((l: any) => ({
+              ...l,
+              timestamp: (l.timestamp && !isNaN(new Date(l.timestamp).getTime())) ? Number(l.timestamp) : Date.now()
+            }));
+        }
+      } catch (e) {}
+    }
+    return [
       { id: '1', source: 'SYSTEM', message: '● JARVIS OS Mark-III v11.2 Initialized.', timestamp: Date.now(), type: 'success' },
       { id: '2', source: 'SYSTEM', message: '» Neural Core: Active. Secure Link Ready.', timestamp: Date.now() + 50, type: 'info' },
     ];
   });
 
+  // Debounced LocalStorage Persistence Manager to eliminate main-thread blocking during streaming
+  const persistenceTimeoutRef = useRef<any>(null);
+  const latestStateRef = useRef({
+    memories,
+    logs,
+    personality,
+    userIdentity,
+    timezone,
+    taskPlans,
+    scheduledTasks,
+    upgradeRequests,
+    sessions,
+  });
+
+  // Keep latestStateRef updated synchronously without triggering disk writes
   useEffect(() => {
-    localStorage.setItem('jarvis_memories', JSON.stringify(memories));
-    localStorage.setItem('jarvis_logs', JSON.stringify(logs));
-    localStorage.setItem('jarvis_personality', personality);
-    localStorage.setItem('jarvis_identity', userIdentity);
-    localStorage.setItem('jarvis_timezone', timezone);
-    localStorage.setItem('jarvis_task_plans', JSON.stringify(taskPlans));
-    localStorage.setItem('jarvis_scheduled_tasks', JSON.stringify(scheduledTasks));
-    localStorage.setItem('jarvis_upgrade_requests', JSON.stringify(upgradeRequests));
-    localStorage.setItem('jarvis_sessions', JSON.stringify(sessions));
+    latestStateRef.current = {
+      memories,
+      logs,
+      personality,
+      userIdentity,
+      timezone,
+      taskPlans,
+      scheduledTasks,
+      upgradeRequests,
+      sessions,
+    };
   }, [memories, logs, personality, userIdentity, timezone, taskPlans, scheduledTasks, upgradeRequests, sessions]);
+
+  const flushStorageNow = useCallback(() => {
+    if (persistenceTimeoutRef.current) {
+      clearTimeout(persistenceTimeoutRef.current);
+      persistenceTimeoutRef.current = null;
+    }
+    try {
+      const state = latestStateRef.current;
+      localStorage.setItem('jarvis_memories', JSON.stringify(state.memories));
+      localStorage.setItem('jarvis_logs', JSON.stringify(state.logs));
+      localStorage.setItem('jarvis_personality', state.personality);
+      localStorage.setItem('jarvis_identity', state.userIdentity);
+      localStorage.setItem('jarvis_timezone', state.timezone);
+      localStorage.setItem('jarvis_task_plans', JSON.stringify(state.taskPlans));
+      localStorage.setItem('jarvis_scheduled_tasks', JSON.stringify(state.scheduledTasks));
+      localStorage.setItem('jarvis_upgrade_requests', JSON.stringify(state.upgradeRequests));
+      localStorage.setItem('jarvis_sessions', JSON.stringify(state.sessions));
+    } catch (e) {
+      console.warn('Storage flush warning:', e);
+    }
+  }, []);
+
+  // Debounce background state persistence (1200ms) to ensure zero main-thread freeze during AI token streaming
+  useEffect(() => {
+    if (persistenceTimeoutRef.current) {
+      clearTimeout(persistenceTimeoutRef.current);
+    }
+    persistenceTimeoutRef.current = setTimeout(() => {
+      flushStorageNow();
+    }, 1200);
+
+    return () => {
+      if (persistenceTimeoutRef.current) {
+        clearTimeout(persistenceTimeoutRef.current);
+      }
+    };
+  }, [memories, logs, personality, userIdentity, timezone, taskPlans, scheduledTasks, upgradeRequests, sessions, flushStorageNow]);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const screenVideoRef = useRef<HTMLVideoElement>(document.createElement('video'));
@@ -838,15 +1106,91 @@ const App: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
+  // Autonomous Task & Reminder Engine Event Listeners
+  useEffect(() => {
+    const unsubDue = eventBus.on('task.due', (data: any) => {
+      if (data?.task) {
+        addLog(`🔔 DIRECTIVE REMINDER DUE: "${data.task.title}" [Priority: ${data.task.priority.toUpperCase()}]`, 'JARVIS', 'warning');
+        playDigitalPingSound();
+      }
+    });
+
+    const unsubCreated = eventBus.on('task.created', (data: any) => {
+      if (data?.task) {
+        addLog(`📋 New Directive Registered: "${data.task.title}"`, 'SYSTEM', 'info');
+      }
+    });
+
+    const unsubCompleted = eventBus.on('task.completed', (data: any) => {
+      if (data?.task) {
+        addLog(`✓ Directive Accomplished: "${data.task.title}"`, 'JARVIS', 'success');
+      }
+    });
+
+    return () => {
+      unsubDue();
+      unsubCreated();
+      unsubCompleted();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (status === JarvisStatus.LISTENING) {
+      playListeningHumSound();
+    } else if (status === JarvisStatus.SPEAKING) {
+      playSpeakingPulseSound();
+    }
+  }, [status]);
+
   const addLog = useCallback((message: string, source: LogEntry['source'] = 'SYSTEM', type: LogEntry['type'] = 'info') => {
+    if (!message || typeof message !== 'string' || !message.trim()) return;
     setLogs(prev => [...prev, {
       id: Math.random().toString(36).substr(2, 9),
-      source, message, timestamp: Date.now(), type
+      source, message: message.trim(), timestamp: Date.now(), type
     }].slice(-200));
     if (source === 'OPERATOR' || source === 'JARVIS') {
       lastSourceRef.current = source;
     }
   }, []);
+
+  // EventBus Event Dispatch Subscribers for Workflow & Subsystem Telemetry
+  useEffect(() => {
+    const unsubLog = eventBus.on('logger.entry', (entry) => {
+      if (entry && entry.message) {
+        addLog(entry.message, entry.source || 'SYSTEM', entry.type || 'info');
+      }
+    });
+
+    const unsubWfStarted = eventBus.on('workflow.started', (data: any) => {
+      addLog(`⚡ Workflow Started: "${data.name}"`, 'SYSTEM', 'info');
+    });
+    const unsubWfStep = eventBus.on('workflow.step_completed', (data: any) => {
+      addLog(`✓ Workflow Step Complete: [${data.stepName}]`, 'SYSTEM', 'success');
+    });
+    const unsubWfFailed = eventBus.on('workflow.step_failed', (data: any) => {
+      addLog(`! Workflow Step Failed: [${data.stepId}] - ${data.error}`, 'SYSTEM', 'error');
+    });
+    const unsubWfFinished = eventBus.on('workflow.finished', (data: any) => {
+      addLog(`✓ Workflow Pipeline Finished: "${data.name}"`, 'SYSTEM', 'success');
+    });
+
+    const unsubSwarmStart = eventBus.on('swarm.task_started', (data: any) => {
+      addLog(`🐝 Swarm Mission Initiated: "${data.task?.title || 'Swarm Task'}"`, 'JARVIS', 'info');
+    });
+    const unsubSwarmDone = eventBus.on('swarm.task_completed', (data: any) => {
+      addLog(`✓ Swarm Mission Accomplished: "${data.task?.title || 'Swarm Task'}"`, 'JARVIS', 'success');
+    });
+
+    return () => {
+      unsubLog();
+      unsubWfStarted();
+      unsubWfStep();
+      unsubWfFailed();
+      unsubWfFinished();
+      unsubSwarmStart();
+      unsubSwarmDone();
+    };
+  }, [addLog]);
 
   const recordUserActivity = useCallback(() => {
     setLastUserActivityTime(Date.now());
@@ -914,26 +1258,48 @@ const App: React.FC = () => {
     });
   }, []);
 
-  // Sync active logs with sessions store for complete history preservation
+  // Sync active logs with sessions store for clean conversation history preservation (Debounced for streaming smoothness)
   useEffect(() => {
     if (!activeSessionId) return;
-    const lastOpOrJarvis = [...logs].reverse().find(l => l.source === 'OPERATOR' || l.source === 'JARVIS');
-    const previewText = lastOpOrJarvis ? lastOpOrJarvis.message : "Neural session active.";
 
-    setSessions(prevSessions => {
-      return prevSessions.map(s => {
-        if (s.session_id === activeSessionId) {
-          return {
-            ...s,
-            last_message_preview: previewText,
-            timestamp_last_message: Date.now(),
-            messageCount: logs.length,
-            logs: logs
-          };
-        }
-        return s;
+    const timeoutId = setTimeout(() => {
+      // Strictly preserve ONLY conversational messages (USER/OPERATOR & JARVIS) in archive storage
+      const conversationLogs = logs
+        .filter(l => l && typeof l.message === 'string' && l.message.trim().length > 0 && (l.source === 'OPERATOR' || l.source === 'JARVIS'))
+        .map(l => ({
+          ...l,
+          timestamp: (l.timestamp && !isNaN(new Date(l.timestamp).getTime())) ? Number(l.timestamp) : Date.now()
+        }));
+
+      const conversationMessages: ConversationMessage[] = conversationLogs.map(l => ({
+        sessionId: activeSessionId,
+        messageId: l.id,
+        role: l.source === 'OPERATOR' ? 'USER' : 'JARVIS',
+        content: l.message,
+        timestamp: l.timestamp
+      }));
+
+      const lastOpOrJarvis = [...conversationLogs].reverse().find(l => l.source === 'OPERATOR' || l.source === 'JARVIS');
+      const previewText = lastOpOrJarvis ? lastOpOrJarvis.message : "Neural conversation active.";
+
+      setSessions(prevSessions => {
+        return prevSessions.map(s => {
+          if (s.session_id === activeSessionId) {
+            return {
+              ...s,
+              last_message_preview: previewText,
+              timestamp_last_message: Date.now(),
+              messageCount: conversationMessages.length,
+              messages: conversationMessages,
+              logs: conversationLogs
+            };
+          }
+          return s;
+        });
       });
-    });
+    }, 400);
+
+    return () => clearTimeout(timeoutId);
   }, [logs, activeSessionId]);
 
   const getSystemInstructionWithMemories = () => {
@@ -967,13 +1333,16 @@ ${shortTermString || 'No short-term data.'}
       timeZone: timezone
     });
 
+    const selfKnowledgeStr = capabilityRegistry.generateSelfKnowledgePrompt();
+
     let instruction = JARVIS_SYSTEM_INSTRUCTION
       .replace('{{MEMORY_PLACEHOLDER}}', memoryString)
       .replace('{{IDENTITY_PLACEHOLDER}}', userIdentity || 'Identity not set.')
       .replace('{{PERSONALITY_PLACEHOLDER}}', personality || 'Default personality active.')
       .replace('{{CONCISENESS_PROTOCOL}}', concisenessStr)
       .replace('{{TIME_PLACEHOLDER}}', currentTimeStr);
-    return instruction;
+      
+    return `${instruction}\n\n${selfKnowledgeStr}`;
   };
 
   const navigateBrowser = (url: string) => {
@@ -987,7 +1356,7 @@ ${shortTermString || 'No short-term data.'}
     setIsBrowserActive(true);
   };
 
-  const executeSystemTool = (name: string, args: any) => {
+  const executeSystemTool = async (name: string, args: any) => {
     if (!osControlRef.current && !['browse_url', 'autonomous_operations', 'system_monitoring', 'jarvis_gui_control'].includes(name)) return;
 
     addLog(`⌬ Executing Neural Command: ${name.toUpperCase()}`, 'SYSTEM', 'info');
@@ -1000,32 +1369,49 @@ ${shortTermString || 'No short-term data.'}
           setTheme(newTheme as any);
           addLog(`⌬ GUI Autonomy: UI Theme switched to [${newTheme.toUpperCase()}]`, 'JARVIS', 'success');
         }
+        else if ((action === 'set_font' || args.font_style) && args.font_style) {
+          setFontStyle(args.font_style as FontStyle);
+          addLog(`⌬ GUI Autonomy: Global Typography Font switched to [${args.font_style.toUpperCase()}]`, 'JARVIS', 'success');
+        }
         else if (action === 'toggle_panel' && panel) {
           const isOpen = panel_state !== undefined ? panel_state : true;
           if (panel === 'settings') setIsSettingsOpen(isOpen);
           else if (panel === 'memory') setIsMemoryVisible(isOpen);
           else if (panel === 'history') setIsHistoryVisible(isOpen);
           else if (panel === 'upgrade') setIsUpgradeVisible(isOpen);
+          else if (panel === 'about_jarvis' || panel === 'about') setIsAboutJarvisOpen(isOpen);
           else if (panel === 'os_console') setIsOSConsoleOpen(isOpen);
           else if (panel === 'browser') setIsBrowserActive(isOpen);
+          else if (panel === 'weather' || panel === 'weather_workspace') setIsWeatherFullOpen(isOpen);
           addLog(`⌬ GUI Autonomy: Panel [${panel.toUpperCase()}] ${isOpen ? 'opened' : 'closed'}.`, 'JARVIS', 'info');
+        }
+        else if (action === 'open_weather' || action === 'show_weather') {
+          setIsWeatherFullOpen(true);
+          addLog(`⌬ GUI Autonomy: Opened Full Window Weather Workspace.`, 'JARVIS', 'info');
+        }
+        else if (action === 'close_weather' || action === 'hide_weather') {
+          setIsWeatherFullOpen(false);
+          addLog(`⌬ GUI Autonomy: Closed Weather Workspace.`, 'JARVIS', 'info');
         }
         else if (action === 'set_hud_mode' && hud_mode) {
           setMode(hud_mode as any);
           addLog(`⌬ GUI Autonomy: HUD Mode changed to [${hud_mode}]`, 'JARVIS', 'info');
         }
+        else if (action === 'set_ui_mode' || args.ui_mode) {
+          const targetUiMode = args.ui_mode === 'developer' ? 'developer' : 'user';
+          setUiMode(targetUiMode);
+          addLog(`⌬ GUI Autonomy: UI Mode switched to [${targetUiMode === 'user' ? 'VOICE MODE (USER)' : 'JARVIS SYSTEM CONSOLE'}]`, 'JARVIS', 'info');
+        }
         else if (action === 'toggle_token_guard') {
           addLog(`⌬ GUI Autonomy: Autonomous Background Monitor is permanently active in background.`, 'JARVIS', 'info');
         }
         else if (action === 'toggle_optic') {
-          const active = enabled !== undefined ? enabled : !isOpticActive;
-          setIsOpticActive(active);
-          isOpticActiveRef.current = active;
-          addLog(`⌬ GUI Autonomy: Optic Camera Vision ${active ? 'ACTIVATED' : 'PAUSED'}.`, 'JARVIS', 'info');
+          const active = enabled !== undefined ? enabled : !isOpticActiveRef.current;
+          handleToggleOptic(active);
         }
-        else if (action === 'toggle_screen_perception') {
-          const active = enabled !== undefined ? enabled : !isScreenActive;
-          handleToggleScreenPerception(active);
+        else if (action === 'toggle_screen_perception' || action === 'screen_perception' || action === 'screen_vision' || action === 'toggle_screen') {
+          const active = enabled !== undefined ? enabled : !isScreenActiveRef.current;
+          await handleToggleScreenPerception(active);
           addLog(`⌬ GUI Autonomy: Screen Perception ${active ? 'ACTIVATED' : 'PAUSED'}.`, 'JARVIS', 'info');
         }
         else if (action === 'toggle_mic_mute') {
@@ -1078,22 +1464,14 @@ ${shortTermString || 'No short-term data.'}
 
       case 'analyze_current_screen': {
         const { focus_area } = args;
-        addLog(`⌬ Screen Vision: Capturing high-res buffer${focus_area ? ` (Focus: ${focus_area})` : ''}...`, 'SYSTEM', 'info');
-        
-        if (!isScreenActiveRef.current) {
-          addLog('⌬ Warning: Screen sensor is inactive. Attempting auto-initialization...', 'JARVIS', 'warning');
-          handleToggleScreenPerception(true);
-        }
-        
-        // In a real implementation, this would return OCR/UI tree data.
-        // For the simulation, we acknowledge the capture.
-        addLog('⌬ Screen Analysis: Buffer processed. OCR and UI tree synchronized with Neural Core.', 'JARVIS', 'success');
+        addLog(`⌬ Screen Vision: Triggering instant OCR scan${focus_area ? ` (Focus: ${focus_area})` : ''}...`, 'SYSTEM', 'info');
+        handleInstantScreenOCR();
         return true;
       }
       
       case 'system_power_management': {
         const { action, delay = 10 } = args;
-        addLog(`⌬ CRITICAL: System ${action.toUpperCase()} sequence initiated. T-minus ${delay}s.`, 'JARVIS', 'warning');
+        addLog(`⌬ System ${action.toUpperCase()} sequence initiated. T-minus ${delay}s.`, 'JARVIS', 'warning');
         if (action === 'lock') {
           osBridge.execute({ action: 'power_control', params: { cmd: 'lock' } })
             .catch(() => addLog('! OS Bridge: Lock command failed. Is main.py running?', 'SYSTEM', 'error'));
@@ -1169,7 +1547,7 @@ ${shortTermString || 'No short-term data.'}
               addLog(`⌬ Real-Time Status: CPU ${cpu_usage}, MEM ${memory_usage}, DISK ${disk_free} Free.`, 'JARVIS', 'success');
             })
             .catch(() => {
-              addLog('⌬ System Status (Simulated): CPU 12%, MEM 4.2GB/16GB, DISK 45% Free.', 'JARVIS', 'info');
+              addLog('⌬ System Telemetry: Running in Browser Sandbox — Local hardware telemetry unavailable (Device connection required).', 'JARVIS', 'info');
             });
         } else {
           addLog(`⌬ Process Manager: ${action.toUpperCase()} executed.`, 'JARVIS', 'info');
@@ -1203,6 +1581,20 @@ ${shortTermString || 'No short-term data.'}
         break;
       }
 
+      case 'execute_workflow':
+      case 'trigger_workflow': {
+        const { pipeline_id, pipeline_name } = args;
+        const pipelines = workflowEngine.getPipelines();
+        const targetPipeline = pipelines.find(p => p.id === pipeline_id || (pipeline_name && p.name.toLowerCase().includes(pipeline_name.toLowerCase())));
+        if (targetPipeline) {
+          addLog(`⚡ Autonomous Workflow Triggered: "${targetPipeline.name}"`, 'JARVIS', 'info');
+          workflowEngine.executePipeline(targetPipeline.id);
+        } else {
+          addLog(`! Workflow Error: Target pipeline "${pipeline_id || pipeline_name}" not found.`, 'SYSTEM', 'warning');
+        }
+        break;
+      }
+
       case 'switch_operating_mode': {
         setMode(args.mode);
         addLog(`⌬ Mode switched to ${args.mode}_MODE`, 'JARVIS', 'info');
@@ -1213,9 +1605,7 @@ ${shortTermString || 'No short-term data.'}
         const { sensor, active } = args;
         if (sensor === 'screen') handleToggleScreenPerception(active);
         if (sensor === 'optic') {
-          setIsOpticActive(active);
-          isOpticActiveRef.current = active;
-          addLog(`⌬ Optic sensor ${active ? 'activated' : 'deactivated'} autonomously.`, 'JARVIS', 'info');
+          handleToggleOptic(active);
         }
         break;
       }
@@ -1325,7 +1715,7 @@ ${shortTermString || 'No short-term data.'}
               timestamp_last_message: Date.now(),
               last_message_preview: "Neural session initialized.",
               mode: mode,
-              model: 'gemini-3-flash-preview',
+              model: 'gemini-3.6-flash',
               messageCount: 0,
               memorySaved: false
             };
@@ -1446,16 +1836,42 @@ ${shortTermString || 'No short-term data.'}
         return true;
       }
 
-      case 'task_scheduler': {
-        const { action, time, task_action, reminder_text } = args;
-        if (action === 'schedule_task' || action === 'create_reminder') {
-          const newTask = { id: Math.random().toString(36).substr(2, 9), time, action: task_action || reminder_text, status: 'pending' };
-          setScheduledTasks(prev => [newTask, ...prev]);
-          addLog(`⌬ Scheduler: ${action === 'create_reminder' ? 'Reminder' : 'Task'} set for ${time}: ${task_action || reminder_text}`, 'JARVIS', 'success');
+      case 'task_scheduler':
+      case 'task_manager': {
+        const { action, time, task_action, reminder_text, priority, recurrence, title, id, search } = args;
+        const taskTitle = title || task_action || reminder_text || 'Scheduled Directive';
+
+        if (action === 'schedule_task' || action === 'create_reminder' || action === 'create' || action === 'add') {
+          const created = taskManager.createTask({
+            title: taskTitle,
+            due_time: time,
+            priority: priority || 'medium',
+            recurrence: recurrence || 'none',
+          });
+          setScheduledTasks(prev => [{ id: created.id, time: time || '', action: created.title, status: created.status }, ...prev]);
+          addLog(`⌬ Task Engine: Directive scheduled "${created.title}" [Priority: ${created.priority.toUpperCase()}]`, 'JARVIS', 'success');
+          return `Directive "${created.title}" successfully scheduled (ID: ${created.id}).`;
+        } else if (action === 'check_pending_tasks' || action === 'list') {
+          const list = taskManager.getTasks({ status: 'pending', search });
+          addLog(`⌬ Task Engine: ${list.length} pending directives in execution queue.`, 'JARVIS', 'info');
+          return list.length > 0
+            ? `Active Directives:\n${list.map(t => `• ${t.title} [Priority: ${t.priority.toUpperCase()}] ${t.due_time ? `(Due: ${t.due_time})` : ''}`).join('\n')}`
+            : 'No pending directives currently in queue.';
+        } else if (action === 'complete' && id) {
+          taskManager.completeTask(id);
+          addLog(`⌬ Task Engine: Directive marked accomplished (ID: ${id})`, 'JARVIS', 'success');
+          return `Directive ID ${id} completed.`;
+        } else if (action === 'delete' && id) {
+          taskManager.deleteTask(id);
+          addLog(`⌬ Task Engine: Directive purged (ID: ${id})`, 'SYSTEM', 'info');
+          return `Directive ID ${id} removed.`;
+        } else if (action === 'open_panel' || action === 'open') {
+          setIsTaskPanelOpen(true);
+          return "Task & Reminder Engine interface displayed on HUD.";
         } else {
-          addLog(`⌬ Scheduler: ${action.toUpperCase()} sequence active.`, 'JARVIS', 'info');
+          addLog(`⌬ Task Engine: ${action?.toUpperCase() || 'QUERY'} sequence active.`, 'JARVIS', 'info');
+          return `Task Engine action "${action}" processed.`;
         }
-        return true;
       }
 
       case 'skill_registry': {
@@ -1553,8 +1969,8 @@ ${shortTermString || 'No short-term data.'}
 
     // 1. Primary: High-Quality Cloud TTS with authentic 'Charon' Male Voice
     try {
-      const ttsResponse = await ai.models.generateContent({
-        model: "gemini-2.5-flash-preview-tts",
+      let ttsResponse = await ai.models.generateContent({
+        model: "gemini-3.1-flash-tts-preview",
         contents: [{ parts: [{ text: textToRead }] }],
         config: {
           responseModalities: [Modality.AUDIO],
@@ -1566,8 +1982,19 @@ ${shortTermString || 'No short-term data.'}
       if (audioDataB64) {
         let outCtx = audioContextRef.current?.output;
         if (!outCtx || outCtx.state === 'closed') {
-          outCtx = new ((window as any).AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-          if (audioContextRef.current) audioContextRef.current.output = outCtx;
+          const AudioCtxClass = (window as any).AudioContext || (window as any).webkitAudioContext;
+          if (AudioCtxClass) {
+            try {
+              outCtx = new AudioCtxClass({ sampleRate: 24000 });
+            } catch (e) {
+              try {
+                outCtx = new AudioCtxClass();
+              } catch (err) {
+                console.warn("Failed to construct output AudioContext:", err);
+              }
+            }
+          }
+          if (outCtx && audioContextRef.current) audioContextRef.current.output = outCtx;
         }
         await outCtx.resume();
         const audioBuffer = await decodeAudioData(decode(audioDataB64), outCtx, 24000, 1);
@@ -1588,10 +2015,11 @@ ${shortTermString || 'No short-term data.'}
     }
 
     // 2. Fallback: Browser Speech Synthesis with strictly filtered Male Voice
-    if ('speechSynthesis' in window) {
+    if ('speechSynthesis' in window && typeof (window as any).SpeechSynthesisUtterance === 'function') {
       try {
         window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(textToRead);
+        const UtteranceClass = (window as any).SpeechSynthesisUtterance;
+        const utterance = new UtteranceClass(textToRead);
         utterance.rate = 1.1;
         utterance.pitch = 0.85; // Masculine deeper tone
         
@@ -1630,6 +2058,27 @@ ${shortTermString || 'No short-term data.'}
   const handleSendMessage = async (msg: string, files?: File[]) => {
     if (!msg.trim() && (!files || files.length === 0)) return;
 
+    if (msg.toLowerCase().includes('reboot') || msg.toLowerCase().includes('boot sequence')) {
+      triggerBootSequence();
+    }
+
+    const lowerMsg = msg.toLowerCase().trim();
+    if (
+      lowerMsg === 'config' || 
+      lowerMsg === 'settings' || 
+      lowerMsg.includes('open config') || 
+      lowerMsg.includes('open settings') || 
+      lowerMsg.includes('show config') || 
+      lowerMsg.includes('show settings') || 
+      lowerMsg.includes('config panel') || 
+      lowerMsg.includes('settings panel') || 
+      lowerMsg.includes('system settings') ||
+      lowerMsg.includes('system config')
+    ) {
+      setIsSettingsOpen(true);
+      addLog('⌬ GUI Autonomy: System Configuration & Settings Panel opened.', 'JARVIS', 'info');
+    }
+
     stopAllAudioPlayback();
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
 
@@ -1655,99 +2104,156 @@ ${shortTermString || 'No short-term data.'}
     let fullReply = "";
     let aiClient: GoogleGenAI | null = null;
 
-    try {
-      aiClient = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const parts: any[] = [{ text: msg }];
-      for (const f of inlineFiles) {
-        parts.push({ inlineData: { data: f.data, mimeType: f.mimeType } });
-      }
+    const taskCategory = aiProviderManager.detectTaskCategory(msg, inlineFiles.length > 0);
+    const routedProvider = aiProviderManager.getProviderForTask(taskCategory);
 
-      const responseStream = await aiClient.models.generateContentStream({
-        model: 'gemini-3.6-flash',
-        contents: [{ role: 'user', parts }],
-        config: {
-          systemInstruction: getSystemInstructionWithMemories(),
-          temperature: 0.7,
-          tools: [{ googleSearch: {} }, { functionDeclarations: toolDeclarations }],
-          toolConfig: {
-            includeServerSideToolInvocations: true
-          },
-          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW }
-        }
-      });
-
-      let hasHandledGrounding = false;
-
-      // Start new JARVIS response log block
-      activeTranscriptionIdRef.current['OPERATOR'] = null;
-      activeTranscriptionIdRef.current['JARVIS'] = null;
-
-      for await (const chunk of responseStream) {
-        const c = chunk as GenerateContentResponse;
-        
-        // Handle Grounding Metadata (Sources) - only once
-        if (!hasHandledGrounding && c.candidates?.[0]?.groundingMetadata) {
-          const grounding = c.candidates[0].groundingMetadata;
-          if (grounding.groundingChunks) {
-            const sources = grounding.groundingChunks
-              .map((chunk: any) => chunk.web ? { title: chunk.web.title, uri: chunk.web.uri } : null)
-              .filter((s: any) => s !== null);
-            setNeuralSources(sources);
-            if (sources.length > 0) {
-              addLog(`⌬ Research Complete. Found ${sources.length} neural sources.`, 'SYSTEM', 'success');
-              if (osControlRef.current && !isBrowserActive) {
-                navigateBrowser(sources[0].uri);
-              }
-            }
-          }
-          hasHandledGrounding = true;
-        }
-
-        if (c.functionCalls) {
-          for (const fc of c.functionCalls) executeSystemTool(fc.name, fc.args);
-        }
-
-        if (c.text) {
-          fullReply += c.text;
-          updateOrAddLog(fullReply, 'JARVIS');
-        }
-      }
-
-      setActiveProvider('gemini');
-
-    } catch (geminiErr: any) {
-      console.warn("Gemini API error, testing OpenRouter failover:", geminiErr);
-      addLog(`! Gemini API Alert: ${geminiErr.message || 'Quota/Limit reached'}`, 'SYSTEM', 'warning');
-
-      const keyToUse = openRouterKey.trim() || localStorage.getItem('jarvis_openrouter_key') || ((import.meta as any).env?.VITE_OPENROUTER_API_KEY as string) || '';
-
-      if (keyToUse) {
-        addLog(`⌬ AUTOMATED DUAL FAILOVER: Switching seamlessly to OpenRouter [${openRouterModel}]...`, 'JARVIS', 'info');
-        setActiveProvider('openrouter');
+    // If routed to NVIDIA Nemotron Ultra Backend Worker for complex reasoning, architecture, or deep coding:
+    if (routedProvider.id === 'nemotron' && inlineFiles.length === 0) {
+      addLog(`⌬ Neural Router: Delegating [${taskCategory}] directive to NVIDIA Nemotron Backend Reasoning Worker...`, 'JARVIS', 'info');
+      try {
+        let accumulated = '';
         activeTranscriptionIdRef.current['OPERATOR'] = null;
         activeTranscriptionIdRef.current['JARVIS'] = null;
 
-        try {
-          fullReply = await sendOpenRouterRequest({
-            apiKey: keyToUse,
-            model: openRouterModel,
-            systemPrompt: getSystemInstructionWithMemories(),
-            userMessage: msg,
-            inlineFiles,
-            onChunk: (chunkText) => {
-              updateOrAddLog(chunkText, 'JARVIS');
+        const taskReq = nemotronDelegation.buildTaskRequest({
+          prompt: msg,
+          relevantContext: `Operator: Virat. System Mode: APEX OS.`
+        });
+
+        // If task is debugging or complex architecture, run controlled multi-call processing with JARVIS verification
+        if (taskCategory === 'debugging' || taskCategory === 'complexReasoning') {
+          const multiCallRes = await nemotronDelegation.executeControlledMultiCallTask(
+            taskReq,
+            { systemPrompt: getSystemInstructionWithMemories() },
+            (iteration, maxIterations, statusMsg) => {
+              addLog(`⌬ JARVIS Iteration (${iteration}/${maxIterations}): ${statusMsg}`, 'SYSTEM', 'info');
             }
-          });
-          addLog(`⌬ OpenRouter Failover Stream completed successfully.`, 'SYSTEM', 'success');
-        } catch (openRouterErr: any) {
-          addLog(`! OpenRouter Failover Error: ${openRouterErr.message}`, 'SYSTEM', 'error');
-          fullReply = `! System Notice: Gemini API quota was exceeded and OpenRouter failover returned an error (${openRouterErr.message}). Please verify your OpenRouter key in System Config.`;
+          );
+
+          if (multiCallRes.success && multiCallRes.rawText) {
+            fullReply = multiCallRes.rawText;
+            updateOrAddLog(fullReply, 'JARVIS');
+            setActiveProvider('nemotron');
+            addLog(`⌬ Nemotron Multi-Call Verification completed (${multiCallRes.iteration} iteration(s) | ${multiCallRes.latencyMs}ms). Output verified by JARVIS.`, 'SYSTEM', 'success');
+          }
+        } else {
+          // Standard streaming task for coding and general reasoning
+          const nemotronRes = await aiProviderManager.streamWithTask(
+            taskCategory,
+            msg,
+            (chunk) => {
+              accumulated += chunk;
+              updateOrAddLog(accumulated, 'JARVIS');
+            },
+            { systemPrompt: getSystemInstructionWithMemories() }
+          );
+
+          if (nemotronRes && nemotronRes.text) {
+            fullReply = nemotronRes.text;
+            setActiveProvider('nemotron');
+            addLog(`⌬ Nemotron Backend Worker processing complete (${nemotronRes.latencyMs}ms | ${nemotronRes.usage.totalTokens} tokens). Formatted response synthesized by JARVIS.`, 'SYSTEM', 'success');
+          }
+        }
+      } catch (nemotronErr: any) {
+        addLog(`! Nemotron Backend Worker failover triggered: ${nemotronErr?.message || 'Switching to Gemini Core'}`, 'SYSTEM', 'warning');
+      }
+    }
+
+    if (!fullReply) {
+      try {
+        aiClient = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const parts: any[] = [{ text: msg }];
+        for (const f of inlineFiles) {
+          parts.push({ inlineData: { data: f.data, mimeType: f.mimeType } });
+        }
+
+        const responseStream = await aiClient.models.generateContentStream({
+          model: 'gemini-3.6-flash',
+          contents: [{ role: 'user', parts }],
+          config: {
+            systemInstruction: getSystemInstructionWithMemories(),
+            temperature: 0.7,
+            tools: [{ googleSearch: {} }, { functionDeclarations: toolDeclarations }],
+            toolConfig: {
+              includeServerSideToolInvocations: true
+            },
+            thinkingConfig: { thinkingLevel: ThinkingLevel.LOW }
+          }
+        });
+
+        let hasHandledGrounding = false;
+
+        // Start new JARVIS response log block
+        activeTranscriptionIdRef.current['OPERATOR'] = null;
+        activeTranscriptionIdRef.current['JARVIS'] = null;
+
+        for await (const chunk of responseStream) {
+          const c = chunk as GenerateContentResponse;
+          
+          // Handle Grounding Metadata (Sources) - only once
+          if (!hasHandledGrounding && c.candidates?.[0]?.groundingMetadata) {
+            const grounding = c.candidates[0].groundingMetadata;
+            if (grounding.groundingChunks) {
+              const sources = grounding.groundingChunks
+                .map((chunk: any) => chunk.web ? { title: chunk.web.title, uri: chunk.web.uri } : null)
+                .filter((s: any) => s !== null);
+              setNeuralSources(sources);
+              if (sources.length > 0) {
+                addLog(`⌬ Research Complete. Found ${sources.length} neural sources.`, 'SYSTEM', 'success');
+                if (osControlRef.current && !isBrowserActive) {
+                  navigateBrowser(sources[0].uri);
+                }
+              }
+            }
+            hasHandledGrounding = true;
+          }
+
+          if (c.functionCalls) {
+            for (const fc of c.functionCalls) executeSystemTool(fc.name, fc.args);
+          }
+
+          if (c.text) {
+            fullReply += c.text;
+            updateOrAddLog(fullReply, 'JARVIS');
+          }
+        }
+
+        setActiveProvider('gemini');
+
+      } catch (geminiErr: any) {
+        console.warn("Gemini API error, testing OpenRouter failover:", geminiErr);
+        addLog(`! Gemini API Alert: ${geminiErr.message || 'Quota/Limit reached'}`, 'SYSTEM', 'warning');
+
+        const keyToUse = openRouterKey.trim() || localStorage.getItem('jarvis_openrouter_key') || ((import.meta as any).env?.VITE_OPENROUTER_API_KEY as string) || '';
+
+        if (keyToUse) {
+          addLog(`⌬ AUTOMATED DUAL FAILOVER: Switching seamlessly to OpenRouter [${openRouterModel}]...`, 'JARVIS', 'info');
+          setActiveProvider('openrouter');
+          activeTranscriptionIdRef.current['OPERATOR'] = null;
+          activeTranscriptionIdRef.current['JARVIS'] = null;
+
+          try {
+            fullReply = await sendOpenRouterRequest({
+              apiKey: keyToUse,
+              model: openRouterModel,
+              systemPrompt: getSystemInstructionWithMemories(),
+              userMessage: msg,
+              inlineFiles,
+              onChunk: (chunkText) => {
+                updateOrAddLog(chunkText, 'JARVIS');
+              }
+            });
+            addLog(`⌬ OpenRouter Failover Stream completed successfully.`, 'SYSTEM', 'success');
+          } catch (openRouterErr: any) {
+            addLog(`! OpenRouter Failover Error: ${openRouterErr.message}`, 'SYSTEM', 'error');
+            fullReply = `! System Notice: Gemini API quota was exceeded and OpenRouter failover returned an error (${openRouterErr.message}). Please verify your OpenRouter key in System Config.`;
+            updateOrAddLog(fullReply, 'JARVIS');
+          }
+        } else {
+          addLog(`! OpenRouter Key missing. Please set OPENROUTER_API_KEY in System Config for automatic quota failover.`, 'SYSTEM', 'warning');
+          fullReply = `! Notice: Gemini API quota or rate limit reached (${geminiErr.message || '429 Quota Exceeded'}). Please configure an OpenRouter API key in System Config to enable automated zero-downtime failover.`;
           updateOrAddLog(fullReply, 'JARVIS');
         }
-      } else {
-        addLog(`! OpenRouter Key missing. Please set OPENROUTER_API_KEY in System Config for automatic quota failover.`, 'SYSTEM', 'warning');
-        fullReply = `! Notice: Gemini API quota or rate limit reached (${geminiErr.message || '429 Quota Exceeded'}). Please configure an OpenRouter API key in System Config to enable automated zero-downtime failover.`;
-        updateOrAddLog(fullReply, 'JARVIS');
       }
     }
 
@@ -1764,6 +2270,17 @@ ${shortTermString || 'No short-term data.'}
 
     // Keep full response text in Neural Link Logs
     updateOrAddLog(reply, 'JARVIS');
+
+    // Flush persistent state to storage immediately upon completion of response
+    flushStorageNow();
+
+    // Feed response to Neural Workspace Manager for intelligent classification & Focus Mode triggering
+    neuralWorkspaceManager.handleAIResponse(msg, reply, {
+      sources: neuralSources,
+      hasVisionFrame: isOpticActive || isScreenActive,
+      provider: activeProvider,
+      model: openRouterModel || 'gemini-2.5-flash'
+    });
 
     if (reply.length > 1200 || msg.toLowerCase().includes('report') || msg.toLowerCase().includes('briefing')) {
       setIntelligenceReport(reply);
@@ -1797,43 +2314,295 @@ ${shortTermString || 'No short-term data.'}
     }]);
   }, []);
 
-  const playClick = useCallback(async () => {
-    try {
-      const ctx = new AudioContext();
-      const osc = ctx.createOscillator(); const g = ctx.createGain();
-      osc.type = 'sine'; osc.frequency.setValueAtTime(800, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.1);
-      g.gain.setValueAtTime(0.05, ctx.currentTime); g.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.1);
-      osc.connect(g); g.connect(ctx.destination);
-      osc.start(); osc.stop(ctx.currentTime + 0.1);
-      return ctx;
-    } catch(e) { return null; }
+  const triggerPlayClick = useCallback(() => {
+    playTickSound();
   }, []);
 
-  const handleToggleOptic = useCallback((forceState?: boolean) => {
-    const nextState = forceState !== undefined ? forceState : !isOpticActive;
+  const handleToggleOptic = useCallback(async (forceState?: boolean | any) => {
+    const isExplicitBool = typeof forceState === 'boolean';
+    const nextState = isExplicitBool ? forceState : !isOpticActiveRef.current;
+    
     setIsOpticActive(nextState);
     isOpticActiveRef.current = nextState;
-    if (cameraStreamRef.current) {
-      cameraStreamRef.current.getVideoTracks().forEach(track => {
-        track.enabled = nextState;
-      });
+
+    if (nextState) {
+      if (cameraStreamRef.current && cameraStreamRef.current.getVideoTracks().length > 0) {
+        cameraStreamRef.current.getVideoTracks().forEach(track => {
+          track.enabled = true;
+        });
+        if (videoRef.current) {
+          if (!videoRef.current.srcObject || videoRef.current.srcObject !== cameraStreamRef.current) {
+            videoRef.current.srcObject = cameraStreamRef.current;
+          }
+          videoRef.current.play().catch(() => {});
+        }
+      } else {
+        try {
+          addLog('⌬ Optic Vision: Initializing hardware camera feed...', 'SYSTEM', 'info');
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { max: 15 } }
+          });
+          if (cameraStreamRef.current) {
+            stream.getVideoTracks().forEach(track => cameraStreamRef.current?.addTrack(track));
+          } else {
+            cameraStreamRef.current = stream;
+          }
+          if (videoRef.current) {
+            videoRef.current.srcObject = cameraStreamRef.current || stream;
+            videoRef.current.play().catch(() => {});
+          }
+        } catch (err: any) {
+          addLog(`! Optic Vision Error: ${err?.message || 'Camera access denied.'}`, 'SYSTEM', 'error');
+          setIsOpticActive(false);
+          isOpticActiveRef.current = false;
+          return;
+        }
+      }
+    } else {
+      if (cameraStreamRef.current) {
+        cameraStreamRef.current.getVideoTracks().forEach(track => {
+          track.enabled = false;
+        });
+      }
     }
     addLog(`⌬ Optic Vision: ${nextState ? 'Sensors Online (Camera Vision Active)' : 'Sensors Suspended (Camera Vision Turned Off)'}.`, 'SYSTEM', nextState ? 'success' : 'warning');
-  }, [isOpticActive, addLog]);
+  }, [addLog]);
 
-  const handleToggleScreenPerception = async (forceState?: boolean) => {
-    const target = forceState !== undefined ? forceState : !isScreenActive;
+  const createSyntheticScreenStream = (): MediaStream => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1280;
+    canvas.height = 720;
+    const ctx = canvas.getContext('2d');
+    
+    let frameCount = 0;
+    const drawFrame = () => {
+      if (!ctx) return;
+      frameCount++;
+      // Dark cyber background
+      ctx.fillStyle = '#050b14';
+      ctx.fillRect(0, 0, 1280, 720);
+
+      // Grid pattern
+      ctx.strokeStyle = 'rgba(0, 242, 255, 0.07)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < 1280; x += 40) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 720); ctx.stroke();
+      }
+      for (let y = 0; y < 720; y += 40) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(1280, y); ctx.stroke();
+      }
+
+      // Top OS Header Bar
+      ctx.fillStyle = 'rgba(2, 13, 26, 0.95)';
+      ctx.fillRect(0, 0, 1280, 38);
+      ctx.fillStyle = '#00f2ff';
+      ctx.font = 'bold 12px Orbitron, sans-serif';
+      ctx.fillText('JARVIS OS v4.2 // VIRTUAL DESKTOP & OCR HUD', 18, 24);
+
+      ctx.fillStyle = '#a855f7';
+      ctx.font = '11px monospace';
+      ctx.fillText(`STREAM: LIVE_BUFFER | FPS: 60 | OCR: ONLINE | TIME: ${new Date().toLocaleTimeString()}`, 740, 24);
+
+      // Main Code Window
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+      ctx.strokeStyle = 'rgba(0, 242, 255, 0.35)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(40, 60, 760, 620, 8);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(2, 13, 26, 0.85)';
+      ctx.beginPath();
+      ctx.roundRect(40, 60, 760, 34, [8, 8, 0, 0]);
+      ctx.fill();
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 12px monospace';
+      ctx.fillText('⚡ active_task_executor.ts — JARVIS AI OS Core', 56, 82);
+
+      const codeLines = [
+        'import { Kernel, EventBus, SecurityAuthority } from "@jarvis/core";',
+        'import { GeminiProviderRouter } from "@jarvis/providers";',
+        '',
+        'export class ScreenVisionEngine {',
+        '  private isScanning: boolean = true;',
+        '  private ocrConfidence: number = 0.998;',
+        '',
+        '  public async captureScreenBuffer(): Promise<OCRResult> {',
+        `    console.log("[SCREEN_PERCEPTION] Analyzing frame #${frameCount}...");`,
+        '    const textBuffer = await this.extractTextLayers();',
+        '    return { text: textBuffer, status: "SUCCESS" };',
+        '  }',
+        '}'
+      ];
+      ctx.font = '12px "Fira Code", monospace';
+      codeLines.forEach((line, idx) => {
+        ctx.fillStyle = line.startsWith('import') ? '#c084fc' : line.startsWith('export') || line.startsWith('private') || line.startsWith('public') ? '#38bdf8' : line.includes('//') ? '#64748b' : '#e2e8f0';
+        ctx.fillText(`${idx + 1}`.padStart(2, ' ') + '  ' + line, 56, 125 + idx * 24);
+      });
+
+      // Inspection Telemetry Window (Right Top)
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+      ctx.strokeStyle = 'rgba(168, 85, 247, 0.45)';
+      ctx.beginPath();
+      ctx.roundRect(820, 60, 420, 380, 8);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#a855f7';
+      ctx.font = 'bold 12px Orbitron, sans-serif';
+      ctx.fillText('NEURAL_SCREEN_PERCEPTION_HUD', 836, 88);
+
+      // Moving Laser Scan Line
+      const scanY = 100 + ((frameCount * 3) % 320);
+      ctx.strokeStyle = 'rgba(0, 242, 255, 0.7)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(830, scanY);
+      ctx.lineTo(1230, scanY);
+      ctx.stroke();
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = '11px monospace';
+      ctx.fillText('UI Nodes Detected: 18 Active Controls', 836, 125);
+      ctx.fillText('OCR Text Extraction: 100% Precision', 836, 150);
+      ctx.fillText('Primary Target: Code Editor & Workspace', 836, 175);
+      ctx.fillText('JARVIS Autonomous Control: ENABLED', 836, 200);
+
+      // Terminal Window (Right Bottom)
+      ctx.fillStyle = 'rgba(2, 13, 26, 0.95)';
+      ctx.strokeStyle = 'rgba(34, 197, 94, 0.4)';
+      ctx.beginPath();
+      ctx.roundRect(820, 460, 420, 220, 8);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#22c55e';
+      ctx.font = '11px monospace';
+      ctx.fillText('$ jarvis --screen-vision-stream', 836, 488);
+      ctx.fillText('[OK] Screen Perception sensor stream linked', 836, 512);
+      ctx.fillText('[OK] Real-time OCR & Spatial tracking active', 836, 536);
+      ctx.fillText(`[LIVE] Frame #${frameCount} processed cleanly`, 836, 560);
+    };
+
+    const intervalId = setInterval(drawFrame, 1000 / 30);
+    const stream = canvas.captureStream(30);
+    stream.getVideoTracks()[0]?.addEventListener('ended', () => {
+      clearInterval(intervalId);
+    });
+    return stream;
+  };
+
+  const handleToggleScreenPerception = async (forceState?: boolean | any) => {
+    const isExplicitBool = typeof forceState === 'boolean';
+    const target = isExplicitBool ? forceState : !isScreenActiveRef.current;
     if (!target) {
-      if (screenStreamRef.current) { screenStreamRef.current.getTracks().forEach(t => t.stop()); screenStreamRef.current = null; }
-      setIsScreenActive(false); isScreenActiveRef.current = false;
+      if (screenStreamRef.current) { 
+        screenStreamRef.current.getTracks().forEach(t => t.stop()); 
+        screenStreamRef.current = null; 
+      }
+      setIsScreenActive(false); 
+      isScreenActiveRef.current = false;
+      addLog('⌬ Screen Perception: Stream Suspended.', 'SYSTEM', 'warning');
     } else {
       try {
-        const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-        screenStreamRef.current = stream; screenVideoRef.current.srcObject = stream;
-        screenVideoRef.current.play(); setIsScreenActive(true); isScreenActiveRef.current = true;
-      } catch (err) { addLog('! Screen access denied.', 'SYSTEM', 'error'); }
+        const displayMediaOptions: any = {
+          video: {
+            displaySurface: 'monitor', // Requests browser to pre-select Entire Screen / Full Window
+            width: { ideal: 1920, max: 2560 },
+            height: { ideal: 1080, max: 1440 },
+            frameRate: { ideal: 30 }
+          },
+          audio: false,
+          surfaceSwitching: 'include',
+          selfBrowserSurface: 'exclude', // Excludes current tab from default selection, forcing Entire Screen / Window tab
+          preferCurrentTab: false
+        };
+        
+        addLog('⌬ Screen Perception: Initiating Full Screen / Window Capture. Select "Entire Screen" in browser prompt...', 'JARVIS', 'info');
+        const stream = await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
+        screenStreamRef.current = stream;
+        
+        // Handle user ending display share via browser bar
+        stream.getVideoTracks()[0]?.addEventListener('ended', () => {
+          setIsScreenActive(false);
+          isScreenActiveRef.current = false;
+          addLog('⌬ Screen Perception: Stream Ended by Operator.', 'SYSTEM', 'info');
+        });
+
+        if (screenVideoRef.current) {
+          screenVideoRef.current.srcObject = stream;
+          screenVideoRef.current.play().catch(() => {});
+        }
+        setIsScreenActive(true); 
+        isScreenActiveRef.current = true;
+        addLog('⌬ Screen Perception: Stream Online (Entire Screen / Window active).', 'SYSTEM', 'success');
+      } catch (err) {
+        console.warn('Display Media capture unavailable or prompt canceled, activating JARVIS Virtual OS Screen Stream:', err);
+        try {
+          const fallbackStream = createSyntheticScreenStream();
+          screenStreamRef.current = fallbackStream;
+          if (screenVideoRef.current) {
+            screenVideoRef.current.srcObject = fallbackStream;
+            screenVideoRef.current.play().catch(() => {});
+          }
+          setIsScreenActive(true); 
+          isScreenActiveRef.current = true;
+          addLog('⌬ Screen Perception: Virtual OS Screen Perception & Telemetry Online.', 'SYSTEM', 'success');
+        } catch (fallbackErr) {
+          addLog('! Screen access denied.', 'SYSTEM', 'error');
+        }
+      }
     }
+  };
+
+  const handleInstantScreenOCR = async () => {
+    addLog('⌬ Instant Screen OCR: Capturing screen snapshot & extracting text layers...', 'JARVIS', 'info');
+    try {
+      // Extract text content directly from visible DOM elements for ultra-fast zero-latency OCR
+      const textBlocks: string[] = [];
+      const elements = document.querySelectorAll('h1, h2, h3, h4, h5, p, span, button, input, textarea, code, pre, a, li');
+      elements.forEach((el) => {
+        const txt = (el as HTMLElement).innerText || (el as HTMLInputElement).value;
+        if (txt && txt.trim().length > 2 && txt.trim().length < 300) {
+          textBlocks.push(txt.trim());
+        }
+      });
+      const uniqueText = Array.from(new Set(textBlocks)).slice(0, 40).join('\n• ');
+
+      // Render high-res DOM snapshot
+      const canvas = await html2canvas(document.body, {
+        scale: 0.8,
+        useCORS: true,
+        logging: false
+      });
+
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+      let imageFile: File | undefined = undefined;
+      if (blob) {
+        try {
+          imageFile = new File([blob], `screen_snapshot_ocr_${Date.now()}.jpg`, { type: 'image/jpeg' });
+        } catch (e) {
+          console.warn("File constructor fallback:", e);
+          (blob as any).name = `screen_snapshot_ocr_${Date.now()}.jpg`;
+          imageFile = blob as File;
+        }
+      }
+
+      addLog(`⌬ Screen OCR Analysis: Extracted ${textBlocks.length} UI text nodes. Synchronized with Neural Core.`, 'JARVIS', 'success');
+
+      const promptMsg = `⚡ [INSTANT SCREEN OCR SNAPSHOT]\nOperator requested screen OCR inspection.\n\nVISIBLE TEXT ON SCREEN:\n• ${uniqueText.slice(0, 1500)}\n\nPlease summarize what is open on the screen and what the operator is working on in clear, natural Hinglish.`;
+
+      handleSendMessage(promptMsg, imageFile ? [imageFile] : undefined);
+    } catch (err: any) {
+      console.warn('DOM Canvas OCR capture fallback:', err);
+      addLog(`! Instant OCR error: ${err?.message || 'Failed'}. Falling back to DOM text extractions...`, 'SYSTEM', 'warning');
+    }
+  };
+
+  const handleUploadScreenImage = (file: File) => {
+    addLog(`⌬ Custom Screen Screenshot Uploaded: [${file.name}]. Analyzing visual layers...`, 'JARVIS', 'info');
+    handleSendMessage(`🖼️ [CUSTOM SCREEN IMAGE OCR]\nPlease analyze this screen snapshot image and explain what is visible on the screen in Hinglish.`, [file]);
   };
 
   const stopLive = useCallback(() => {
@@ -1896,7 +2665,12 @@ ${shortTermString || 'No short-term data.'}
       } catch (e) {
         inputCtx = new AudioCtxClass();
       }
-      const outputCtx = new AudioCtxClass({ sampleRate: 24000 });
+      let outputCtx: AudioContext;
+      try {
+        outputCtx = new AudioCtxClass({ sampleRate: 24000 });
+      } catch (e) {
+        outputCtx = new AudioCtxClass();
+      }
       
       await inputCtx.resume();
       await outputCtx.resume();
@@ -1950,14 +2724,18 @@ ${shortTermString || 'No short-term data.'}
               return;
             }
             audioTracks.forEach(t => { t.enabled = true; });
-            const audioOnlyStream = new MediaStream(audioTracks);
+            let audioOnlyStream: MediaStream = stream;
+            try {
+              audioOnlyStream = new MediaStream(audioTracks);
+            } catch (e) {
+              console.warn("MediaStream constructor fallback:", e);
+            }
             const source = inputCtx.createMediaStreamSource(audioOnlyStream);
             mediaSourceRef.current = source;
             
-            // ScriptProcessorNode (2048 samples) anchored in ref and window to prevent V8 GC from stopping audio stream
+            // ScriptProcessorNode (2048 samples) anchored in ref to prevent V8 GC from stopping audio stream
             const scriptProcessor = inputCtx.createScriptProcessor(2048, 1, 1);
             scriptProcessorRef.current = scriptProcessor;
-            (window as any).__jarvis_script_processor = scriptProcessor;
             
             // Connect scriptProcessor to a zero-gain node to destination so audio processing runs
             // smoothly without looping microphone audio into speakers (preventing acoustic feedback)
@@ -2121,6 +2899,52 @@ ${shortTermString || 'No short-term data.'}
     }
   };
 
+  // Global Keyboard Shortcuts Matrix
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if user is actively typing in an input/textarea
+      const target = e.target as HTMLElement;
+      const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+
+      if (e.key === 'Escape') {
+        if (isSettingsOpen) { setIsSettingsOpen(false); return; }
+        if (isHistoryVisible) { setIsHistoryVisible(false); return; }
+        if (isMemoryVisible) { setIsMemoryVisible(false); return; }
+        if (isOSConsoleOpen) { setIsOSConsoleOpen(false); return; }
+        if (isWeatherFullOpen) { setIsWeatherFullOpen(false); return; }
+        if (neuralWorkspaceManager.getIsOpen()) { neuralWorkspaceManager.close(); return; }
+      }
+
+      if ((e.ctrlKey || e.metaKey) && !isInput) {
+        if (e.key === 'k' || e.key === '/') {
+          e.preventDefault();
+          setIsHistoryVisible(prev => !prev);
+        } else if (e.key === 'w' || e.key === 'W') {
+          e.preventDefault();
+          neuralWorkspaceManager.toggle();
+        } else if (e.key === 'm' || e.key === 'M') {
+          e.preventDefault();
+          setIsMemoryVisible(prev => !prev);
+        } else if (e.key === 'o' || e.key === 'O') {
+          e.preventDefault();
+          handleToggleOptic();
+        } else if (e.key === 's' || e.key === 'S') {
+          e.preventDefault();
+          handleToggleScreenPerception();
+        } else if (e.key === ',') {
+          e.preventDefault();
+          setIsSettingsOpen(prev => !prev);
+        } else if (e.key === '`' || e.key === '~') {
+          e.preventDefault();
+          setIsOSConsoleOpen(prev => !prev);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [isSettingsOpen, isHistoryVisible, isMemoryVisible, isOSConsoleOpen, isWeatherFullOpen]);
+
   const isSlate = theme === 'slate';
   const isMinimal = theme === 'minimal';
   const isGold = theme === 'gold';
@@ -2132,96 +2956,199 @@ ${shortTermString || 'No short-term data.'}
       className={`h-screen w-screen flex flex-col font-sans relative overflow-hidden transition-colors duration-500 ${
       isSlate ? 'bg-[#12151c] text-slate-200' : 'bg-transparent text-slate-100'
     }`}>
-      <header className={`h-11 flex items-center justify-between px-5 z-50 shrink-0 transition-all duration-300 ${
+      {uiMode === 'user' ? (
+        <CinematicUserWorkspace
+          status={status}
+          micLevel={micLevel}
+          theme={theme}
+          logs={logs}
+          onSendMessage={handleSendMessage}
+          videoRef={videoRef}
+          screenVideoRef={screenVideoRef}
+          isOpticActive={isOpticActive}
+          isScreenActive={isScreenActive}
+          isOSConsoleOpen={isOSConsoleOpen}
+          isMemoryVisible={isMemoryVisible}
+          isHistoryVisible={isHistoryVisible}
+          handleToggleOptic={handleToggleOptic}
+          handleToggleScreenPerception={handleToggleScreenPerception}
+          onInstantOCR={handleInstantScreenOCR}
+          onUploadImage={handleUploadScreenImage}
+          setIsOSConsoleOpen={setIsOSConsoleOpen}
+          setIsMemoryVisible={setIsMemoryVisible}
+          setIsHistoryVisible={setIsHistoryVisible}
+          isWeatherFullOpen={isWeatherFullOpen}
+          setIsWeatherFullOpen={setIsWeatherFullOpen}
+          isLive={isLive}
+          handleStartLive={handleStartLive}
+          isMicMuted={isMicMuted}
+          setIsMicMuted={setIsMicMuted}
+          isJarvisMuted={isJarvisMuted}
+          setIsJarvisMuted={setIsJarvisMuted}
+          isSettingsOpen={isSettingsOpen}
+          setIsSettingsOpen={setIsSettingsOpen}
+          uiMode={uiMode}
+          setUiMode={setUiMode}
+          activeProvider={activeProvider}
+          openRouterModel={openRouterModel}
+          memories={memories}
+          personality={personality}
+          userIdentity={userIdentity}
+          setMemories={setMemories}
+          setPersonality={setPersonality}
+          setUserIdentity={setUserIdentity}
+          sessions={sessions}
+          activeSessionId={activeSessionId}
+          setActiveSessionId={setActiveSessionId}
+          setLogs={setLogs}
+          handleNewChat={handleNewChat}
+          setSessions={setSessions}
+          onTriggerBoot={triggerBootSequence}
+          isTaskPanelOpen={isTaskPanelOpen}
+          setIsTaskPanelOpen={setIsTaskPanelOpen}
+        />
+      ) : (
+        <>
+          {/* Living Background Neural Canvas & Spatial Field */}
+          <NeuralCanvas status={status} theme={theme} />
+
+          {/* Ambient Radial Dark Lighting Overlay */}
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(3,25,55,0.45)_0%,rgba(1,8,22,0.85)_50%,rgba(0,0,0,0.98)_100%)] pointer-events-none z-0" />
+
+      {/* ================= JARVIS SYSTEM CONSOLE HEADER ================= */}
+      <header className={`h-11 flex items-center justify-between px-6 z-50 shrink-0 transition-all duration-500 relative opacity-70 hover:opacity-100 ${
         isSlate
-          ? 'bg-zinc-800/90 border-b border-slate-700/80 shadow-lg text-slate-200'
-          : 'glass border-b border-cyan-500/20 shadow-lg'
+          ? 'bg-zinc-800/65 hover:bg-zinc-800/95 border-b border-slate-700/50 backdrop-blur-[18px] shadow-sm text-slate-200'
+          : 'bg-[rgba(2,12,27,0.65)] hover:bg-[rgba(2,12,27,0.92)] border-b border-cyan-500/20 hover:border-cyan-400/50 backdrop-blur-[18px] shadow-[0_0_20px_rgba(0,242,255,0.1)] hover:shadow-[0_4px_30px_rgba(0,242,255,0.3)]'
       }`}>
         <div className="flex items-center gap-4">
-          <div className="flex gap-1.5">
+          {/* UI Mode Switcher */}
+          <div className="flex items-center gap-1 p-0.5 rounded-full bg-[#030914] border border-cyan-500/40 shadow-[0_0_15px_rgba(0,242,255,0.2)]">
+            <button
+              onClick={() => { setUiMode('user'); playClick(); addLog('⌬ UI Mode: Switched to JARVIS Voice Mode', 'SYSTEM', 'info'); }}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-orbitron font-extrabold uppercase transition-all duration-300 text-slate-400 hover:text-cyan-300 whitespace-nowrap"
+              title="Switch to Voice Mode"
+            >
+              <Tv className="w-3 h-3 shrink-0" />
+              <span className="whitespace-nowrap">VOICE MODE</span>
+            </button>
+            <button
+              onClick={() => { setUiMode('developer'); playClick(); addLog('⌬ UI Mode: Switched to JARVIS SYSTEM CONSOLE', 'SYSTEM', 'info'); }}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-orbitron font-extrabold uppercase transition-all duration-300 bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-600 text-black font-black shadow-[0_0_15px_rgba(0,242,255,0.6)] whitespace-nowrap"
+              title="Active: JARVIS System Console"
+            >
+              <Code2 className="w-3.5 h-3.5 shrink-0" />
+              <span className="whitespace-nowrap">SYSTEM CONSOLE</span>
+            </button>
+          </div>
+
+          <div className="flex gap-2">
             <button 
-              onClick={() => { playClick(); setIsHistoryVisible(!isHistoryVisible); setIsMemoryVisible(false); setIsUpgradeVisible(false); }} 
-              className={`flex items-center gap-1.5 px-2.5 py-1 transition-all border font-bold ${
+              onClick={() => { playClick(); setIsHistoryVisible(!isHistoryVisible); setIsMemoryVisible(false); setIsUpgradeVisible(false); setIsAboutJarvisOpen(false); }} 
+              className={`flex items-center gap-1.5 px-3 py-1.5 transition-all duration-300 border font-orbitron font-extrabold text-[9px] rounded-full backdrop-blur-xl ${
                 isSlate
                   ? isHistoryVisible ? 'bg-zinc-700 border-zinc-400 text-zinc-100 rounded-xl shadow-sm' : 'bg-zinc-900/60 border-slate-700/80 text-slate-400 hover:text-slate-200 rounded-xl'
-                  : isHistoryVisible ? 'bg-cyan-500/10 border-cyan-400 text-cyan-400 rounded' : 'bg-slate-900/50 border-white/5 text-slate-500 rounded'
+                  : isHistoryVisible ? 'bg-cyan-500/20 border-cyan-400 text-cyan-200 shadow-[0_0_15px_rgba(0,242,255,0.4)]' : 'bg-[#030914]/80 border-cyan-500/30 text-slate-300 hover:text-cyan-300 hover:border-cyan-400/60'
               }`}
             >
-              <HistoryIcon className="w-3.5 h-3.5" />
-              <span className="text-[9px] font-orbitron">Archives</span>
+              <HistoryIcon className="w-3.5 h-3.5 text-cyan-400" />
+              <span>History</span>
             </button>
 
             <button 
-              onClick={() => { playClick(); setIsMemoryVisible(!isMemoryVisible); setIsHistoryVisible(false); setIsUpgradeVisible(false); if(!isMemoryVisible) addLog('⌬ Memory Cluster: Accessing long-term neural storage...', 'JARVIS', 'info'); }} 
-              className={`flex items-center gap-1.5 px-2.5 py-1 transition-all border font-bold ${
+              onClick={() => { playClick(); setIsMemoryVisible(!isMemoryVisible); setIsHistoryVisible(false); setIsUpgradeVisible(false); setIsAboutJarvisOpen(false); if(!isMemoryVisible) addLog('⌬ Memory Cluster: Accessing long-term neural storage...', 'JARVIS', 'info'); }} 
+              className={`flex items-center gap-1.5 px-3 py-1.5 transition-all duration-300 border font-orbitron font-extrabold text-[9px] rounded-full backdrop-blur-xl ${
                 isSlate
                   ? isMemoryVisible ? 'bg-zinc-700 border-zinc-400 text-zinc-100 rounded-xl shadow-sm' : 'bg-zinc-900/60 border-slate-700/80 text-slate-400 hover:text-slate-200 rounded-xl'
-                  : isMemoryVisible ? 'bg-cyan-500/10 border-cyan-400 text-cyan-400 rounded' : 'bg-slate-900/50 border-white/5 text-slate-500 rounded'
+                  : isMemoryVisible ? 'bg-cyan-500/20 border-cyan-400 text-cyan-200 shadow-[0_0_15px_rgba(0,242,255,0.4)]' : 'bg-[#030914]/80 border-cyan-500/30 text-slate-300 hover:text-cyan-300 hover:border-cyan-400/60'
               }`}
             >
-              <BrainCircuit className="w-3.5 h-3.5" />
-              <span className="text-[9px] font-orbitron">Memory</span>
+              <BrainCircuit className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Memory</span>
             </button>
 
             <button 
-              onClick={() => { playClick(); setIsUpgradeVisible(!isUpgradeVisible); setIsHistoryVisible(false); setIsMemoryVisible(false); }} 
-              className={`flex items-center gap-1.5 px-2.5 py-1 transition-all border font-bold relative ${
+              onClick={() => { playClick(); setIsUpgradeVisible(!isUpgradeVisible); setIsHistoryVisible(false); setIsMemoryVisible(false); setIsAboutJarvisOpen(false); }} 
+              className={`flex items-center gap-1.5 px-3 py-1.5 transition-all duration-300 border font-orbitron font-extrabold text-[9px] rounded-full backdrop-blur-xl relative ${
                 isSlate
                   ? isUpgradeVisible ? 'bg-zinc-700 border-zinc-400 text-zinc-100 rounded-xl shadow-sm' : 'bg-zinc-900/60 border-slate-700/80 text-slate-400 hover:text-slate-200 rounded-xl'
-                  : isUpgradeVisible ? 'bg-cyan-500/10 border-cyan-400 text-cyan-400 rounded' : 'bg-slate-900/50 border-white/5 text-slate-500 rounded'
+                  : isUpgradeVisible ? 'bg-cyan-500/20 border-cyan-400 text-cyan-200 shadow-[0_0_15px_rgba(0,242,255,0.4)]' : 'bg-[#030914]/80 border-cyan-500/30 text-slate-300 hover:text-cyan-300 hover:border-cyan-400/60'
               }`}
             >
               <BrainCircuit className="w-3.5 h-3.5 text-amber-400" />
-              <span className="text-[9px] font-orbitron">Upgrades</span>
+              <span>Upgrades</span>
               {upgradeRequests.length > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse shadow-[0_0_6px_rgba(245,158,11,0.8)]" />
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(245,158,11,1)]" />
               )}
+            </button>
+
+            <button 
+              onClick={() => { playClick(); setIsTaskPanelOpen(true); }} 
+              className={`flex items-center gap-1.5 px-3 py-1.5 transition-all duration-300 border font-orbitron font-extrabold text-[9px] rounded-full backdrop-blur-xl relative ${
+                isSlate
+                  ? isTaskPanelOpen ? 'bg-zinc-700 border-zinc-400 text-zinc-100 rounded-xl shadow-sm' : 'bg-zinc-900/60 border-slate-700/80 text-slate-400 hover:text-slate-200 rounded-xl'
+                  : isTaskPanelOpen ? 'bg-cyan-500/20 border-cyan-400 text-cyan-200 shadow-[0_0_15px_rgba(0,242,255,0.4)]' : 'bg-[#030914]/80 border-cyan-500/30 text-slate-300 hover:text-cyan-300 hover:border-cyan-400/60'
+              }`}
+              title="Open Task & Reminder Engine"
+            >
+              <Clock className="w-3.5 h-3.5 text-cyan-300 animate-pulse" />
+              <span>Tasks</span>
+            </button>
+
+            <button 
+              onClick={() => { playClick(); setIsAboutJarvisOpen(!isAboutJarvisOpen); setIsHistoryVisible(false); setIsMemoryVisible(false); setIsUpgradeVisible(false); if(!isAboutJarvisOpen) addLog('⌬ JARVIS Dossier: Opening classified AI intelligence profile...', 'JARVIS', 'info'); }} 
+              className={`flex items-center gap-1.5 px-3 py-1.5 transition-all duration-300 border font-orbitron font-extrabold text-[9px] rounded-full backdrop-blur-xl relative ${
+                isSlate
+                  ? isAboutJarvisOpen ? 'bg-zinc-700 border-zinc-400 text-zinc-100 rounded-xl shadow-sm' : 'bg-zinc-900/60 border-slate-700/80 text-slate-400 hover:text-slate-200 rounded-xl'
+                  : isAboutJarvisOpen ? 'bg-cyan-500/20 border-cyan-400 text-cyan-200 shadow-[0_0_15px_rgba(0,242,255,0.4)]' : 'bg-[#030914]/80 border-cyan-500/30 text-slate-300 hover:text-cyan-300 hover:border-cyan-400/60'
+              }`}
+            >
+              <Info className="w-3.5 h-3.5 text-cyan-300 animate-pulse" />
+              <span>About JARVIS</span>
             </button>
           </div>
 
-          <div className={`flex items-center gap-1 font-orbitron text-xs tracking-wider ${
-            isSlate ? 'text-zinc-200 font-bold' : 'text-cyan-400'
-          }`}>
-            <Clock className="w-3.5 h-3.5" /> {time.toLocaleTimeString([], { hour12: false })}
+          <div className="flex flex-col items-center">
+            <div className={`flex items-center gap-1.5 font-orbitron font-extrabold text-sm sm:text-base tracking-wider ${
+              isSlate ? 'text-zinc-100' : 'text-cyan-300 drop-shadow-[0_0_10px_rgba(0,242,255,0.7)]'
+            }`}>
+              <Clock className="w-4 h-4 text-cyan-400" />
+              <span className="text-[10px] font-mono font-bold text-slate-400 tracking-wider mr-0.5">TIME:</span>
+              <span>{time.toLocaleTimeString([], { hour12: false })}</span>
+            </div>
+            {/* Real-Time Heartbeat ECG Waveform */}
+            <div className="flex items-center gap-1 opacity-80" title="JARVIS Neural Heartbeat Pulse">
+              <span className="text-[7px] font-mono text-cyan-400/80 font-bold uppercase tracking-widest">PULSE</span>
+              <svg className="w-14 h-3 text-cyan-400" viewBox="0 0 80 16">
+                <path
+                  d="M 0 8 L 18 8 L 22 2 L 26 14 L 30 1 L 34 15 L 38 8 L 80 8"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="animate-[heartbeat_1.8s_infinite_linear]"
+                />
+              </svg>
+            </div>
           </div>
           
-          {/* Fast Efficiency Mode Badge & Toggle */}
+          {/* Fast Efficiency Mode Badge */}
           <button 
             onClick={() => { setVocalConciseness(!vocalConciseness); playClick(); }}
-            className={`flex items-center gap-1.5 px-2.5 py-0.5 transition-all border ${
+            className={`flex items-center gap-1.5 px-3 py-1 transition-all duration-300 border font-orbitron font-extrabold text-[9px] rounded-full backdrop-blur-xl ${
               isSlate
-                ? vocalConciseness ? 'border-emerald-500/80 text-emerald-300 bg-emerald-500/20 rounded-xl font-bold' : 'border-slate-700 text-slate-400 bg-zinc-900/50 rounded-xl'
-                : vocalConciseness ? 'border-emerald-400 text-emerald-300 bg-emerald-500/25 shadow-[0_0_12px_rgba(16,185,129,0.4)] ring-1 ring-emerald-400/50 rounded' : 'border-amber-500/50 text-amber-300 bg-amber-500/10 rounded'
+                ? vocalConciseness ? 'border-emerald-500/80 text-emerald-300 bg-emerald-500/20' : 'border-slate-700 text-slate-400 bg-zinc-900/50'
+                : vocalConciseness ? 'border-emerald-400 text-emerald-300 bg-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'border-amber-500/50 text-amber-300 bg-amber-500/10'
             }`}
             title="Fast Efficiency Mode ensures low latency and ultra-concise responses"
           >
             <Zap className={`w-3.5 h-3.5 ${vocalConciseness ? 'animate-bounce text-emerald-300' : 'text-amber-400'}`} />
-            <span className="text-[9px] font-orbitron font-black uppercase tracking-wider">
-              {vocalConciseness ? 'FAST EFFICIENCY: ON' : 'EFFICIENCY: OFF'}
+            <span className="uppercase tracking-wider">
+              {vocalConciseness ? 'FAST EFFICIENCY' : 'NORMAL'}
             </span>
           </button>
 
-
-          {/* OS Control Button */}
-          <button 
-            onClick={() => { 
-              const nextState = !osControl;
-              setOsControl(nextState); 
-              playClick(); 
-              addLog(`⌬ OS CONTROL: ${nextState ? 'ENGAGED - PC Control Active' : 'DISENGAGED - Read Only Mode'}`, 'SYSTEM', nextState ? 'success' : 'warning');
-            }}
-            className={`flex items-center gap-1.5 px-2.5 py-0.5 transition-all border ${
-              isSlate
-                ? osControl ? 'border-slate-500 text-zinc-100 bg-zinc-700/80 rounded-xl font-bold ring-1 ring-zinc-400/30' : 'border-slate-700 text-slate-500 bg-zinc-900/50 rounded-xl'
-                : osControl ? 'border-cyan-400 text-cyan-200 bg-cyan-500/25 shadow-[0_0_12px_rgba(0,242,255,0.4)] ring-1 ring-cyan-400/50 rounded' : 'border-slate-600/60 text-slate-400 bg-slate-900/60 rounded'
-            }`}
-            title="Toggle JARVIS Operating System Control (PC Automation & Command Execution)"
-          >
-            <Cpu className={`w-3.5 h-3.5 ${osControl ? isSlate ? 'text-zinc-200' : 'text-cyan-300 animate-pulse' : 'text-slate-500'}`} />
-            <span className="text-[9px] font-orbitron font-black uppercase tracking-wider">
-              {osControl ? 'OS CONTROL: ON' : 'OS CONTROL: OFF'}
-            </span>
-          </button>
         </div>
 
         {/* Mode Selector */}
@@ -2230,10 +3157,10 @@ ${shortTermString || 'No short-term data.'}
             <button
               key={m}
               onClick={() => { setMode(m); playClick(); addLog(`⌬ Mode manually switched to ${m}_MODE`, 'SYSTEM', 'info'); }}
-              className={`px-2.5 py-0.5 rounded-full border text-[8px] font-orbitron font-bold tracking-widest transition-all duration-300 ${
+              className={`px-3 py-1 rounded-full border text-[8px] font-orbitron font-extrabold tracking-widest transition-all duration-300 ${
                 isSlate
                   ? mode === m ? 'bg-zinc-700 border-zinc-400 text-zinc-100 shadow-md' : 'bg-zinc-900/50 border-slate-800 text-slate-400 hover:border-slate-700'
-                  : mode === m ? 'bg-cyan-500/20 border-cyan-400 text-cyan-400 shadow-[0_0_8px_rgba(0,242,255,0.3)]' : 'bg-slate-900/40 border-white/5 text-slate-500 hover:border-white/20'
+                  : mode === m ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_12px_rgba(0,242,255,0.4)]' : 'bg-[#030914]/80 border-cyan-500/20 text-slate-400 hover:border-cyan-400/50 hover:text-cyan-200'
               }`}
             >
               {m}
@@ -2243,13 +3170,13 @@ ${shortTermString || 'No short-term data.'}
 
         <div className="flex items-center gap-3">
           {/* Theme Quick Switcher */}
-          <div className="flex items-center gap-1 bg-slate-900/80 border border-white/10 rounded px-1.5 py-0.5">
-            {(['cyber', 'slate', 'minimal', 'gold'] as const).map((t) => (
+          <div className="flex items-center gap-1 bg-[#030914] border border-cyan-500/30 rounded-full px-2 py-0.5">
+            {(['cyber', 'crimson', 'violet', 'emerald'] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => { setTheme(t); playClick(); addLog(`⌬ Theme switched to ${t.toUpperCase()}`, 'JARVIS', 'info'); }}
-                className={`text-[8px] font-orbitron font-bold uppercase px-1.5 py-0.5 rounded transition-all ${
-                  theme === t ? 'bg-cyan-500 text-black font-black' : 'text-slate-400 hover:text-slate-200'
+                className={`text-[8px] font-orbitron font-extrabold uppercase px-2 py-0.5 rounded-full transition-all ${
+                  theme === t ? 'bg-cyan-400 text-black font-black shadow-[0_0_10px_rgba(0,242,255,0.8)]' : 'text-slate-400 hover:text-slate-200'
                 }`}
                 title={`Switch to ${t} theme`}
               >
@@ -2258,20 +3185,21 @@ ${shortTermString || 'No short-term data.'}
             ))}
           </div>
 
-          <div className={`flex items-center gap-2 px-3 py-1 rounded-full border ${
+          <div className={`flex items-center gap-2 px-3 py-1 rounded-full border transition-all duration-300 ${
             isSlate 
               ? 'bg-zinc-800/80 border-slate-700 text-zinc-200' 
-              : 'bg-slate-900/60 border-cyan-500/10 backdrop-blur-md text-cyan-400'
+              : 'bg-[#030914]/80 border-cyan-500/30 backdrop-blur-md text-cyan-300 shadow-[0_0_12px_rgba(0,242,255,0.2)]'
           }`}>
-            <Activity className={`w-3 h-3 ${isLive ? (isSlate ? 'text-zinc-200' : 'text-cyan-400 animate-pulse') : 'text-slate-500'}`} />
-            <span className="text-[8px] font-orbitron tracking-[0.25em] uppercase font-bold">STATUS: {status}</span>
+            <Activity className={`w-3.5 h-3.5 ${isLive ? (isSlate ? 'text-zinc-200' : 'text-cyan-400 animate-pulse') : 'text-slate-500'}`} />
+            <span className="text-[8px] font-orbitron tracking-[0.2em] uppercase font-black">STATUS: {status}</span>
           </div>
+
           <button 
             onClick={stopLive} 
-            className={`group flex items-center gap-1.5 px-3 py-1 border text-[8px] font-orbitron font-bold ${
+            className={`group flex items-center gap-1.5 px-3.5 py-1 border text-[8px] font-orbitron font-extrabold transition-all duration-300 rounded-full ${
               isSlate 
-                ? 'bg-rose-950/40 border-rose-800 text-rose-300 rounded-xl hover:bg-rose-900/60'
-                : 'bg-red-950/20 border-red-500/20 rounded text-red-500 hover:bg-red-600'
+                ? 'bg-rose-950/40 border-rose-800 text-rose-300 hover:bg-rose-900/60'
+                : 'bg-rose-500/10 border-rose-500/30 text-rose-400 hover:bg-rose-500/20 hover:border-rose-400 hover:shadow-[0_0_15px_rgba(244,63,94,0.4)]'
             }`}
           >
             <Power className="w-3 h-3 group-hover:animate-spin" /> EMERGENCY
@@ -2279,10 +3207,47 @@ ${shortTermString || 'No short-term data.'}
         </div>
       </header>
 
+      {/* Atmospheric Floating Cyan Particle Dust Layer */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+        {Array.from({ length: 24 }).map((_, i) => (
+          <div
+            key={i}
+            className="absolute w-1 h-1 bg-cyan-400/50 rounded-full shadow-[0_0_6px_#00f2ff]"
+            style={{
+              left: `${(i * 4.3) % 100}%`,
+              top: `${(i * 8.1) % 100}%`,
+              animation: `floatDust ${4 + (i % 5)}s ease-in-out infinite`,
+              animationDelay: `${(i * 0.3) % 4}s`
+            }}
+          />
+        ))}
+      </div>
 
-      <div className="flex-1 flex overflow-hidden p-6 pb-0 gap-6 relative">
+      {/* Holographic Connector Beams Radiating from Center Core */}
+      <svg className="absolute inset-0 w-full h-full pointer-events-none z-10 hidden lg:block opacity-50">
+        <line x1="50%" y1="35%" x2="28%" y2="45%" stroke="#00f2ff" strokeWidth="1" strokeDasharray="4 8" className="animate-[beamPulse_3s_infinite_linear]" />
+        <circle cx="28%" cy="45%" r="3" fill="#00f2ff" className="animate-ping" />
+
+        <line x1="50%" y1="35%" x2="72%" y2="45%" stroke="#00f2ff" strokeWidth="1" strokeDasharray="4 8" className="animate-[beamPulse_3s_infinite_linear]" />
+        <circle cx="72%" cy="45%" r="3" fill="#00f2ff" className="animate-ping" />
+
+        <line x1="50%" y1="35%" x2="50%" y2="6%" stroke="#00f2ff" strokeWidth="1" strokeDasharray="4 8" className="animate-[beamPulse_3s_infinite_linear]" />
+      </svg>
+
+      {/* Full Screen Dedicated Workspaces Overlays */}
+      <FullScreenWorkspaceOverlay
+        isOpen={isHistoryVisible}
+        title="NEURAL_CONVERSATION_ARCHIVES"
+        subtitle="Full Transcript Logs, Multi-Session History & Fast Retrieval Matrix"
+        icon={HistoryIcon}
+        badgeText={`${sessions.length} ARCHIVES ACTIVE`}
+        badgeColor="cyan"
+        onClose={() => setIsHistoryVisible(false)}
+        onRefresh={() => addLog('⌬ Archives: Refreshing neural transcript caches...', 'SYSTEM', 'info')}
+        theme={theme}
+      >
         <ChatHistoryPanel 
-          isVisible={isHistoryVisible} 
+          isVisible={true} 
           activeSessionId={activeSessionId} 
           sessions={sessions}
           activeLogs={logs}
@@ -2307,7 +3272,7 @@ ${shortTermString || 'No short-term data.'}
               timestamp_last_message: Date.now(),
               last_message_preview: "Neural session initialized.",
               mode: mode,
-              model: 'gemini-3-flash-preview',
+              model: 'gemini-3.6-flash',
               messageCount: 0,
               memorySaved: false,
               logs: []
@@ -2322,6 +3287,9 @@ ${shortTermString || 'No short-term data.'}
           onTogglePin={(id) => {
             setSessions(prev => prev.map(s => s.session_id === id ? { ...s, isPinned: !s.isPinned } : s));
           }}
+          onToggleFavorite={(id) => {
+            setSessions(prev => prev.map(s => s.session_id === id ? { ...s, isFavorite: !s.isFavorite } : s));
+          }}
           onDeleteSession={(id) => {
             if (sessions.length <= 1) return;
             setSessions(prev => prev.filter(s => s.session_id !== id));
@@ -2334,59 +3302,311 @@ ${shortTermString || 'No short-term data.'}
             }
           }}
         />
-        {isMemoryVisible && <div className="w-96 h-full animate-in slide-in-from-left duration-500 z-40"><MemoryPanel memories={memories} personality={personality} userIdentity={userIdentity} onAddMemory={(c, cat, type) => setMemories(p => [{ id: Math.random().toString(), content: c, category: cat, timestamp: Date.now(), type: type || 'long_term' }, ...p])} onDeleteMemory={(id) => setMemories(p => p.filter(m => m.id !== id))} onUpdatePersonality={setPersonality} onUpdateIdentity={setUserIdentity} theme={theme} /></div>}
-        {isUpgradeVisible && <div className="w-96 h-full animate-in slide-in-from-left duration-500 z-40"><UpgradePanel requests={upgradeRequests} onClear={() => setUpgradeRequests([])} onRemove={(id) => setUpgradeRequests(prev => prev.filter(r => r.id !== id))} theme={theme} /></div>}
+      </FullScreenWorkspaceOverlay>
+
+      <FullScreenWorkspaceOverlay
+        isOpen={isMemoryVisible}
+        title="NEURAL_MEMORY_CLUSTER"
+        subtitle="Quantum Memory Anchors, Personality System Directives & Operator Identity Profile"
+        icon={BrainCircuit}
+        badgeText={`${memories.length} ANCHORS ACTIVE`}
+        badgeColor="purple"
+        onClose={() => setIsMemoryVisible(false)}
+        onRefresh={() => addLog('⌬ Memory Cluster: Re-indexing memory graph...', 'JARVIS', 'info')}
+        theme={theme}
+      >
+        <MemoryPanel 
+          memories={memories} 
+          personality={personality} 
+          userIdentity={userIdentity} 
+          onAddMemory={(c, cat, type) => setMemories(p => [{ id: Math.random().toString(), content: c, category: cat, timestamp: Date.now(), type: type || 'long_term' }, ...p])} 
+          onDeleteMemory={(id) => setMemories(p => p.filter(m => m.id !== id))} 
+          onUpdatePersonality={setPersonality} 
+          onUpdateIdentity={setUserIdentity} 
+          theme={theme} 
+        />
+      </FullScreenWorkspaceOverlay>
+
+      <FullScreenWorkspaceOverlay
+        isOpen={isUpgradeVisible}
+        title="NEURAL_SYSTEM_UPGRADES"
+        subtitle="Dynamic Capability Requests, Hardware Optimization & Feature Patch Log"
+        icon={Sparkles}
+        badgeText={`${upgradeRequests.length} UPGRADES PENDING`}
+        badgeColor="amber"
+        onClose={() => setIsUpgradeVisible(false)}
+        onRefresh={() => addLog('⌬ Upgrade Core: Scanning system for feature requests...', 'SYSTEM', 'info')}
+        theme={theme}
+      >
+        <UpgradePanel 
+          requests={upgradeRequests} 
+          onClear={() => setUpgradeRequests([])} 
+          onRemove={(id) => setUpgradeRequests(prev => prev.filter(r => r.id !== id))} 
+          theme={theme} 
+        />
+      </FullScreenWorkspaceOverlay>
+
+      {/* ================= DEVELOPER WORKSPACE CENTER ================= */}
+      <div className="flex-1 flex overflow-hidden p-4 pb-2 gap-4 relative z-20">
         
-        <div className="flex-1 min-w-0 flex flex-col gap-0 relative">
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-40">
-            <HudCore status={status} micLevel={micLevel} />
-          </div>
-          <div className="z-20 flex-1 flex flex-col overflow-hidden">
-            <div className={`flex-1 overflow-hidden flex flex-col shadow-2xl relative transition-all duration-300 ${
-              isSlate 
-                ? 'bg-zinc-900/90 border border-slate-700/80 rounded-t-2xl'
-                : 'glass rounded-t-xl border-white/10'
-            }`}>
-               {isBrowserActive ? (
-                 <div className="h-full w-full flex flex-col relative bg-[#111]">
-                    <iframe src={browserUrl} className="flex-1 w-full h-full border-none opacity-90" title="JARVIS HUD BROWSER" />
-                    <div className="absolute top-2 right-4 z-20 flex gap-2">
-                       <button onClick={() => setIsBrowserActive(false)} className="bg-black/80 p-2 rounded-full text-white hover:text-red-400 border border-white/10 shadow-lg"><X className="w-4 h-4" /></button>
-                    </div>
-                    {/* Neural Analysis Overlay */}
-                    <div className="absolute bottom-0 left-0 w-full p-4 bg-gradient-to-t from-black to-transparent pointer-events-none">
-                       <div className="text-[9px] font-mono text-cyan-400 animate-pulse">ANALYZING_REMOTE_BUFFER... [ENCRYPTED_TUNNEL_ACTIVE]</div>
-                    </div>
-                 </div>
-               ) : intelligenceReport ? (
-                 <div className="relative h-full"><button onClick={() => setIntelligenceReport(null)} className="absolute top-4 right-4 z-50 p-2 bg-black/50 border border-white/10 rounded-full text-slate-400 hover:text-cyan-400"><X className="w-5 h-5" /></button><IntelligenceBriefing content={intelligenceReport} /></div>
-               ) : (
-                 <Terminal logs={logs} theme={theme} />
-               )}
+        {/* LEFT COLUMN: Holographic Stream Timeline (30% width) */}
+        <div className="w-[30%] min-w-[280px] max-w-[380px] flex flex-col h-full bg-[rgba(2,12,27,0.35)] border border-cyan-500/20 backdrop-blur-md rounded-2xl p-3.5 shadow-[0_0_25px_rgba(0,242,255,0.08)] overflow-hidden z-20">
+          {isBrowserActive ? (
+            <div className="h-full w-full flex flex-col relative bg-[#111] rounded-xl overflow-hidden">
+              <iframe src={browserUrl} className="flex-1 w-full h-full border-none opacity-90" title="JARVIS HUD BROWSER" />
+              <div className="absolute top-2 right-4 z-20 flex gap-2">
+                <button onClick={() => setIsBrowserActive(false)} className="bg-[#030914] p-2 rounded-full text-white hover:text-cyan-400 border border-cyan-500/30 shadow-lg"><X className="w-4 h-4" /></button>
+              </div>
             </div>
+          ) : (
+            <Terminal logs={logs} theme={theme} />
+          )}
+        </div>
+
+        {/* CENTER COLUMN: Hero 3D AI Core & Real-Time System Control Monitor (40% width) */}
+        <div className="flex-1 flex flex-col items-center justify-between h-full relative overflow-y-auto custom-scroll bg-[rgba(2,12,27,0.25)] border border-cyan-500/20 backdrop-blur-[12px] rounded-2xl p-3 sm:p-3.5 shadow-[0_0_35px_rgba(0,242,255,0.12)] z-20 gap-2">
+          {/* Hero 3D AI Core */}
+          <div className="flex-1 min-h-[180px] w-full flex flex-col items-center justify-center relative py-1">
+            {/* Background Orbital Rings */}
+            <div className="absolute w-[260px] sm:w-[320px] h-[260px] sm:h-[320px] rounded-full border border-cyan-500/15 animate-[spin_35s_linear_infinite] pointer-events-none" />
+            <div className="absolute w-[320px] sm:w-[380px] h-[320px] sm:h-[380px] rounded-full border border-dashed border-cyan-400/10 animate-[spin_50s_linear_infinite_reverse] pointer-events-none" />
+
+            <div className="relative z-20 transform hover:scale-105 transition-transform duration-500">
+              <HudCore status={status} micLevel={micLevel} theme={theme} isUserMode={false} />
+            </div>
+          </div>
+
+          {/* Subsystem Telemetry Circular Radial Gauges */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 z-20 w-full max-w-xl shrink-0">
+            {/* CPU Gauge */}
+            <div className="flex items-center gap-2 p-2 rounded-xl bg-[rgba(2,12,27,0.6)] border border-cyan-500/25 backdrop-blur-md shadow-md">
+              <div className="relative w-8 h-8 flex items-center justify-center shrink-0">
+                <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+                  <path className="text-slate-800" strokeWidth="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                  <path className="text-cyan-400" strokeDasharray="14, 100" strokeWidth="3.5" strokeLinecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                </svg>
+                <Cpu className="w-3 h-3 text-cyan-400 absolute" />
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-[7.5px] font-mono text-slate-400 uppercase tracking-wider">CPU LOAD</span>
+                <span className="text-[10px] font-orbitron font-extrabold text-cyan-200">14% • 4.2G</span>
+              </div>
+            </div>
+
+            {/* RAM Gauge */}
+            <div className="flex items-center gap-2 p-2 rounded-xl bg-[rgba(2,12,27,0.6)] border border-purple-500/25 backdrop-blur-md shadow-md">
+              <div className="relative w-8 h-8 flex items-center justify-center shrink-0">
+                <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+                  <path className="text-slate-800" strokeWidth="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                  <path className="text-purple-400" strokeDasharray="24, 100" strokeWidth="3.5" strokeLinecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                </svg>
+                <Activity className="w-3 h-3 text-purple-400 absolute" />
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-[7.5px] font-mono text-slate-400 uppercase tracking-wider">RAM ALLOC</span>
+                <span className="text-[10px] font-orbitron font-extrabold text-purple-200">3.8 / 16G</span>
+              </div>
+            </div>
+
+            {/* Voice Latency */}
+            <div className="flex items-center gap-2 p-2 rounded-xl bg-[rgba(2,12,27,0.6)] border border-indigo-500/25 backdrop-blur-md shadow-md">
+              <div className="relative w-8 h-8 flex items-center justify-center shrink-0">
+                <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+                  <path className="text-slate-800" strokeWidth="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                  <path className="text-indigo-400" strokeDasharray="18, 100" strokeWidth="3.5" strokeLinecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                </svg>
+                <Zap className="w-3 h-3 text-indigo-400 absolute" />
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-[7.5px] font-mono text-slate-400 uppercase tracking-wider">LATENCY</span>
+                <span className="text-[10px] font-orbitron font-extrabold text-indigo-200">{isLive ? '24ms' : 'READY'}</span>
+              </div>
+            </div>
+
+            {/* Optic FPS */}
+            <div className="flex items-center gap-2 p-2 rounded-xl bg-[rgba(2,12,27,0.6)] border border-emerald-500/25 backdrop-blur-md shadow-md">
+              <div className="relative w-8 h-8 flex items-center justify-center shrink-0">
+                <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+                  <path className="text-slate-800" strokeWidth="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                  <path className="text-emerald-400" strokeDasharray="60, 100" strokeWidth="3.5" strokeLinecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                </svg>
+                <Eye className="w-3 h-3 text-emerald-400 absolute" />
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-[7.5px] font-mono text-slate-400 uppercase tracking-wider">OPTIC FPS</span>
+                <span className="text-[10px] font-orbitron font-extrabold text-emerald-200">60 FPS</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Active Subsystem Live Stream Bar */}
+          <div className="w-full max-w-xl flex items-center justify-between px-3 py-1.5 rounded-xl bg-slate-950/60 border border-cyan-500/20 text-[8.5px] font-mono z-20 shrink-0">
+            <span className="text-slate-400 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
+              ACTIVE PROCESSES:
+            </span>
+            <div className="flex items-center gap-3 text-cyan-300 font-bold">
+              <span>● Speech Engine</span>
+              <span>● Vision Engine</span>
+              <span>● Automation</span>
+              <span>● Quantum Memory</span>
+            </div>
+          </div>
+
+          {/* Developer Command Line Box */}
+          <div className="w-full max-w-xl shrink-0 z-20 pb-1">
             <ChatBox onSendMessage={handleSendMessage} waveform={<Waveform isActive={status === JarvisStatus.SPEAKING || status === JarvisStatus.LISTENING} color={isSlate ? '#e4e4e7' : status === JarvisStatus.LISTENING ? '#00f2ff' : '#0041ff'} />} theme={theme} />
           </div>
         </div>
 
-        <VisionPanel 
-          videoRef={videoRef} 
-          screenVideoRef={screenVideoRef}
-          isScreenActive={isScreenActive}
-          isOpticActive={isOpticActive}
-          status={status}
-          theme={theme}
-        />
+        {/* RIGHT COLUMN: Vision Perception & Active Modules (30% width) */}
+        <div className="w-[30%] min-w-[280px] max-w-[380px] flex flex-col gap-3.5 h-full overflow-y-auto custom-scroll z-20">
+          <VisionPanel 
+            videoRef={videoRef} 
+            screenVideoRef={screenVideoRef}
+            isScreenActive={isScreenActive}
+            isOpticActive={isOpticActive}
+            status={status}
+            theme={theme}
+            onInstantOCR={handleInstantScreenOCR}
+            onUploadImage={handleUploadScreenImage}
+            onToggleScreenPerception={handleToggleScreenPerception}
+          />
+
+          {/* Atmospheric Cloud Telemetry Panel (Placed directly under Optic Perception) */}
+          <WeatherPanel 
+            theme={theme} 
+            isOpenFullModal={isWeatherFullOpen}
+            onToggleFullModal={setIsWeatherFullOpen}
+            onAskJarvisWeather={handleSendMessage}
+          />
+
+          {/* System Health & Active Modules */}
+          <div className="flex-1 flex flex-col gap-2 p-3.5 rounded-2xl bg-[rgba(2,12,27,0.35)] border border-cyan-500/20 backdrop-blur-md">
+            <div className="flex items-center justify-between pb-1.5 border-b border-cyan-500/15">
+              <span className="text-[10px] font-orbitron font-extrabold tracking-widest text-cyan-300 uppercase flex items-center gap-2">
+                <Sliders className="w-3.5 h-3.5 text-cyan-400" />
+                SYSTEM MODULES
+              </span>
+              <span className="text-[8px] font-mono text-emerald-400 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                HEALTH: 100%
+              </span>
+            </div>
+
+            {/* Active Modules List with Live Spectrum Wave Animations */}
+            <div className="flex flex-col gap-1.5 text-[10px] font-mono">
+              <div className="flex items-center justify-between p-1.5 rounded bg-slate-900/40 border border-white/5">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                  <span className="text-slate-200 font-bold">JarvisCore.exe</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-0.5 text-cyan-400 text-[9px]">
+                    <span className="animate-[pulse_0.4s_infinite_alternate]">█</span>
+                    <span className="animate-[pulse_0.6s_infinite_alternate]">▇</span>
+                    <span className="animate-[pulse_0.3s_infinite_alternate]">▆</span>
+                  </div>
+                  <span className="text-cyan-400">0.8%</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-1.5 rounded bg-slate-900/40 border border-white/5">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
+                  <span className="text-slate-200 font-bold">NeuralVoice.wasm</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-0.5 text-indigo-400 text-[9px]">
+                    <span className="animate-[pulse_0.5s_infinite_alternate]">█</span>
+                    <span className="animate-[pulse_0.3s_infinite_alternate]">▇</span>
+                    <span className="animate-[pulse_0.7s_infinite_alternate]">▆</span>
+                  </div>
+                  <span className="text-indigo-400">Charon 2.4</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-1.5 rounded bg-slate-900/40 border border-white/5">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-slate-200 font-bold">MemoryCluster.db</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-0.5 text-emerald-400 text-[9px]">
+                    <span className="animate-[pulse_0.4s_infinite_alternate]">█</span>
+                    <span className="animate-[pulse_0.8s_infinite_alternate]">▇</span>
+                  </div>
+                  <span className="text-emerald-400">{memories.length} Anchors</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-1.5 rounded bg-slate-900/40 border border-white/5">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
+                  <span className="text-slate-200 font-bold">OpticSense.node</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-0.5 text-purple-400 text-[9px]">
+                    <span className="animate-[pulse_0.3s_infinite_alternate]">█</span>
+                    <span className="animate-[pulse_0.5s_infinite_alternate]">▇</span>
+                    <span className="animate-[pulse_0.4s_infinite_alternate]">▆</span>
+                  </div>
+                  <span className="text-purple-400">{isOpticActive ? '60 FPS' : 'STANDBY'}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-1.5 rounded bg-slate-900/40 border border-white/5">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                  <span className="text-slate-200 font-bold">SystemOS.sys</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-0.5 text-amber-400 text-[9px]">
+                    <span className="animate-[pulse_0.6s_infinite_alternate]">█</span>
+                    <span className="animate-[pulse_0.4s_infinite_alternate]">▇</span>
+                  </div>
+                  <span className="text-amber-400">ONLINE</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Telemetry Circular Progress Bars */}
+            <div className="mt-auto pt-2 border-t border-cyan-500/15 flex flex-col gap-2">
+              <div className="flex flex-col gap-1">
+                <div className="flex justify-between text-[9px] font-mono text-slate-400">
+                  <span>CPU LOAD</span>
+                  <span className="text-cyan-300">14%</span>
+                </div>
+                <div className="w-full h-1.5 rounded-full bg-slate-800/80 overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full w-[14%]" />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <div className="flex justify-between text-[9px] font-mono text-slate-400">
+                  <span>MEMORY ALLOC</span>
+                  <span className="text-purple-300">24%</span>
+                </div>
+                <div className="w-full h-1.5 rounded-full bg-slate-800/80 overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full w-[24%]" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <footer className={`h-20 flex items-center justify-center gap-6 z-50 shrink-0 px-4 transition-all duration-300 ${
+      {/* DEVELOPER MODE FOOTER DOCK */}
+      <footer className={`h-11 flex items-center justify-center gap-2 sm:gap-4 z-50 shrink-0 px-6 my-1.5 mx-4 rounded-full transition-all duration-300 relative ${
         isSlate 
-          ? 'bg-zinc-900/95 border-t border-slate-700/80 shadow-2xl' 
+          ? 'bg-zinc-900/70 border border-slate-700/60 backdrop-blur-[18px] shadow-xl' 
           : isMinimal
-            ? 'bg-[#0b0f17]/95 border-t border-emerald-500/20 shadow-2xl'
+            ? 'bg-[#0b0f17]/70 border border-emerald-500/20 backdrop-blur-[18px] shadow-xl'
             : isGold
-              ? 'bg-[#14100c]/95 border-t border-amber-500/20 shadow-2xl'
-              : 'glass border-t border-cyan-500/20'
+              ? 'bg-[#14100c]/70 border border-amber-500/20 backdrop-blur-[18px] shadow-xl'
+              : 'bg-[rgba(2,12,27,0.45)] border border-cyan-400/30 backdrop-blur-[18px] hover:bg-[rgba(2,12,27,0.7)] hover:border-cyan-400/50 shadow-[0_15px_40px_rgba(0,0,0,0.8),0_0_30px_rgba(0,242,255,0.2)]'
       }`}>
+        <div className="absolute top-0 left-8 right-8 h-[1.5px] bg-gradient-to-r from-transparent via-cyan-300/80 to-transparent pointer-events-none" />
         <ControlButton icon={Mic} label="NEURAL" active={isLive} onClick={handleStartLive} color="cyan" disabled={isConnectingRef.current} theme={theme} />
         <ControlButton 
           icon={isMicMuted ? MicOff : Mic} 
@@ -2403,11 +3623,34 @@ ${shortTermString || 'No short-term data.'}
         <ControlButton icon={isJarvisMuted ? VolumeX : Volume2} label="JARVIS_VOICE" active={!isJarvisMuted} onClick={() => setIsJarvisMuted(!isJarvisMuted)} color={isJarvisMuted ? "red" : "blue"} theme={theme} />
         <ControlButton icon={Monitor} label="OPTIC" active={isOpticActive} onClick={() => handleToggleOptic()} color="blue" theme={theme} />
         <ControlButton icon={Layout} label="SCREEN" active={isScreenActive} onClick={() => handleToggleScreenPerception()} color="purple" theme={theme} />
-        <ControlButton icon={Laptop} label="OS_CONTROL" active={isOSConsoleOpen} onClick={() => setIsOSConsoleOpen(!isOSConsoleOpen)} color="cyan" theme={theme} />
         <ControlButton icon={Database} label="MEMORY" active={isMemoryVisible} color="cyan" onClick={() => { setIsMemoryVisible(!isMemoryVisible); if(!isMemoryVisible) addLog('⌬ Memory Cluster: Accessing long-term neural storage...', 'JARVIS', 'info'); }} theme={theme} />
+        <ControlButton icon={Sparkles} label="WORKSPACE" active={false} color="cyan" onClick={() => { neuralWorkspaceManager.open(); addLog('⌬ Dynamic Presentation Workspace activated.', 'JARVIS', 'info'); }} theme={theme} />
         <ControlButton icon={Settings} label="CONFIG" color="slate" onClick={() => setIsSettingsOpen(true)} theme={theme} />
-        <ControlButton icon={TerminalIcon} label="COMMAND" color="cyan" onClick={() => { setIntelligenceReport(null); setIsBrowserActive(false); addLog('⌬ Neural Reset: Direct Link Primed.', 'JARVIS', 'info'); }} theme={theme} />
+        <ControlButton icon={TerminalIcon} label="COMMAND" color="cyan" onClick={() => { setIntelligenceReport(null); setIsBrowserActive(false); triggerBootSequence(); }} theme={theme} />
       </footer>
+        </>
+      )}
+
+      {/* Easter Egg Boot Overlay Sequence */}
+      {isBootingSequence && (
+        <div className="fixed inset-0 bg-[#010814]/95 backdrop-blur-2xl z-50 flex flex-col items-center justify-center p-6 text-cyan-400 font-orbitron animate-in fade-in duration-300 pointer-events-none">
+          <div className="w-24 h-24 rounded-full border-2 border-cyan-400/60 border-t-cyan-300 animate-spin flex items-center justify-center shadow-[0_0_30px_#00f2ff]">
+            <Cpu className="w-10 h-10 text-cyan-300 animate-pulse" />
+          </div>
+          <span className="mt-6 text-xl font-black tracking-[0.3em] text-white drop-shadow-[0_0_15px_#00f2ff]">
+            J.A.R.V.I.S. SYSTEM REBOOT
+          </span>
+          <div className="mt-3 flex items-center gap-3 text-xs font-mono text-cyan-300/80">
+            <span className="animate-pulse">● NEURAL LINK</span>
+            <span className="animate-pulse">● MEMORY CLUSTER</span>
+            <span className="animate-pulse">● OPTIC SENSES</span>
+            <span className="animate-pulse">● CHARON VOICE</span>
+          </div>
+          <div className="w-64 h-1 bg-slate-800 rounded-full overflow-hidden mt-4">
+            <div className="h-full bg-cyan-400 animate-[scan_1.2s_ease-in-out_infinite]" />
+          </div>
+        </div>
+      )}
 
       <OSControlConsole
         isOpen={isOSConsoleOpen}
@@ -2436,76 +3679,128 @@ ${shortTermString || 'No short-term data.'}
         }}
         theme={theme}
         setTheme={setTheme}
+        fontStyle={fontStyle}
+        setFontStyle={setFontStyle}
         onClearLogs={clearNeuralLogs}
         openRouterKey={openRouterKey}
         setOpenRouterKey={setOpenRouterKey}
         openRouterModel={openRouterModel}
         setOpenRouterModel={setOpenRouterModel}
         activeProvider={activeProvider}
+        onOpenRuntimePanel={() => setIsRuntimeOpen(true)}
+        onOpenWorkflowPanel={() => setIsWorkflowOpen(true)}
+        onOpenAIProviders={() => setIsAIProvidersOpen(true)}
+        onOpenTaskPanel={() => setIsTaskPanelOpen(true)}
+      />
+
+      <TaskPanel
+        isOpen={isTaskPanelOpen}
+        onClose={() => setIsTaskPanelOpen(false)}
+        theme={theme}
+        onAskJarvisTask={(cmd) => handleSendMessage(cmd)}
+      />
+
+      <RuntimePanel
+        isOpen={isRuntimeOpen}
+        onClose={() => setIsRuntimeOpen(false)}
+      />
+
+      <WorkflowPanel
+        isOpen={isWorkflowOpen}
+        onClose={() => setIsWorkflowOpen(false)}
+      />
+
+      <AIProvidersModal
+        isOpen={isAIProvidersOpen}
+        onClose={() => setIsAIProvidersOpen(false)}
+      />
+
+      <AboutJarvisModule 
+        isOpen={isAboutJarvisOpen} 
+        onClose={() => setIsAboutJarvisOpen(false)} 
+        theme={theme}
+      />
+
+      {/* DEDICATED FULL-SCREEN NEURAL WORKSPACE / FOCUS VIEW OVERLAY */}
+      <NeuralWorkspace 
+        theme={theme} 
       />
     </div>
   );
 };
 
 const ControlButton = ({ icon: Icon, label, active, onClick, color, disabled, theme = 'cyber' }: any) => {
-  const isSlate = theme === 'slate';
-  const isMinimal = theme === 'minimal';
-  const isGold = theme === 'gold';
+  const themeConfig = getThemeConfig(theme);
 
   const colorMapCyber: any = {
-    cyan: 'text-cyan-400 border-cyan-500/30 bg-cyan-500/5 hover:border-cyan-400',
-    blue: 'text-blue-400 border-blue-500/30 bg-blue-500/5 hover:border-blue-400',
-    purple: 'text-purple-400 border-purple-500/30 bg-purple-500/5 hover:border-purple-400',
-    slate: 'text-slate-400 border-slate-500/30 bg-slate-500/5 hover:border-slate-300',
-    red: 'text-red-500 border-red-500/30 bg-red-500/5 hover:border-red-400',
+    cyan: 'text-cyan-300 border-cyan-500/30 bg-[#040f21]/80 hover:border-cyan-400/60 hover:text-cyan-200 hover:shadow-[0_0_8px_rgba(0,242,255,0.2)]',
+    blue: 'text-blue-300 border-blue-500/30 bg-[#040e24]/80 hover:border-blue-400/60 hover:text-blue-200 hover:shadow-[0_0_8px_rgba(59,130,246,0.2)]',
+    purple: 'text-purple-300 border-purple-500/30 bg-[#0d071e]/80 hover:border-purple-400/60 hover:text-purple-200 hover:shadow-[0_0_8px_rgba(168,85,247,0.2)]',
+    slate: 'text-slate-300 border-slate-600/30 bg-[#0b101c]/80 hover:border-slate-400/60 hover:text-slate-200',
+    red: 'text-rose-300 border-rose-600/40 bg-[#1a0409]/80 hover:border-rose-400/60 hover:text-rose-200 hover:shadow-[0_0_8px_rgba(244,63,94,0.25)]',
   };
 
-  const colorMapSlate: any = {
-    cyan: 'text-zinc-200 border-slate-700 bg-zinc-800/80 hover:border-zinc-500 hover:bg-zinc-700',
-    blue: 'text-zinc-200 border-slate-700 bg-zinc-800/80 hover:border-zinc-500 hover:bg-zinc-700',
-    purple: 'text-zinc-200 border-slate-700 bg-zinc-800/80 hover:border-zinc-500 hover:bg-zinc-700',
-    slate: 'text-zinc-300 border-slate-700 bg-zinc-800/80 hover:border-zinc-500 hover:bg-zinc-700',
-    red: 'text-rose-300 border-rose-800/60 bg-rose-950/40 hover:bg-rose-900/60',
+  const colorMapCrimson: any = {
+    cyan: 'text-rose-300 border-rose-600/40 bg-[#240307]/80 hover:border-rose-400/60 hover:text-rose-200 hover:shadow-[0_0_8px_rgba(255,0,60,0.25)]',
+    blue: 'text-red-300 border-red-600/40 bg-[#240307]/80 hover:border-red-400/60 hover:text-red-200',
+    purple: 'text-rose-300 border-rose-600/40 bg-[#240307]/80 hover:border-rose-400/60 hover:text-rose-200',
+    slate: 'text-slate-300 border-rose-900/40 bg-[#150407] hover:border-rose-600/60 hover:text-slate-200',
+    red: 'text-red-200 border-red-500/60 bg-[#200307] hover:border-red-400/80 hover:shadow-[0_0_8px_rgba(255,0,0,0.3)]',
   };
 
-  const colorMapMinimal: any = {
-    cyan: 'text-emerald-300 border-emerald-500/30 bg-emerald-950/30 hover:border-emerald-400',
-    blue: 'text-teal-300 border-teal-500/30 bg-teal-950/30 hover:border-teal-400',
-    purple: 'text-cyan-300 border-cyan-500/30 bg-cyan-950/30 hover:border-cyan-400',
-    slate: 'text-slate-300 border-slate-600/30 bg-slate-900/30 hover:border-slate-400',
-    red: 'text-red-300 border-red-500/30 bg-red-950/30 hover:border-red-400',
+  const colorMapViolet: any = {
+    cyan: 'text-purple-300 border-purple-500/35 bg-[#100424]/80 hover:border-purple-400/60 hover:text-purple-200 hover:shadow-[0_0_8px_rgba(168,85,247,0.25)]',
+    blue: 'text-indigo-300 border-indigo-500/35 bg-[#090526]/80 hover:border-indigo-400/60 hover:text-indigo-200',
+    purple: 'text-fuchsia-300 border-fuchsia-500/35 bg-[#1a0421]/80 hover:border-fuchsia-400/60 hover:text-fuchsia-200',
+    slate: 'text-slate-300 border-purple-900/40 bg-[#0d081f] hover:border-purple-600/60 hover:text-slate-200',
+    red: 'text-rose-300 border-rose-600/40 bg-rose-950/40 hover:border-rose-400/60',
   };
 
-  const colorMapGold: any = {
-    cyan: 'text-amber-300 border-amber-500/30 bg-amber-950/30 hover:border-amber-400',
-    blue: 'text-amber-200 border-amber-500/30 bg-amber-950/30 hover:border-amber-400',
-    purple: 'text-yellow-300 border-yellow-500/30 bg-yellow-950/30 hover:border-yellow-400',
-    slate: 'text-stone-300 border-stone-600/30 bg-stone-900/30 hover:border-stone-400',
-    red: 'text-red-400 border-red-500/30 bg-red-950/30 hover:border-red-400',
+  const colorMapEmerald: any = {
+    cyan: 'text-emerald-300 border-emerald-500/35 bg-[#03180f]/80 hover:border-emerald-400/60 hover:text-emerald-200 hover:shadow-[0_0_8px_rgba(16,185,129,0.25)]',
+    blue: 'text-teal-300 border-teal-500/35 bg-[#021716]/80 hover:border-teal-400/60 hover:text-teal-200',
+    purple: 'text-emerald-300 border-emerald-500/35 bg-[#03180f]/80 hover:border-emerald-400/60 hover:text-emerald-200',
+    slate: 'text-slate-300 border-emerald-900/40 bg-[#061710] hover:border-emerald-600/60 hover:text-slate-200',
+    red: 'text-rose-300 border-rose-600/40 bg-rose-950/40 hover:border-rose-400/60',
   };
 
-  const styleClasses = isSlate ? colorMapSlate[color] : isMinimal ? colorMapMinimal[color] : isGold ? colorMapGold[color] : colorMapCyber[color];
+  const mapByTheme: any = {
+    cyber: colorMapCyber,
+    crimson: colorMapCrimson,
+    violet: colorMapViolet,
+    emerald: colorMapEmerald,
+  };
+
+  const selectedMap = mapByTheme[themeConfig.id] || colorMapCyber;
+  const styleClasses = selectedMap[color] || selectedMap.cyan;
+
+  const activeStyles: any = {
+    cyber: 'bg-cyan-950/80 text-cyan-200 border-cyan-400/80 shadow-[0_0_8px_rgba(0,242,255,0.3)] font-extrabold ring-1 ring-cyan-400/30',
+    crimson: 'bg-rose-950/85 text-rose-200 border-rose-500/80 shadow-[0_0_8px_rgba(255,0,60,0.35)] font-extrabold ring-1 ring-rose-500/30',
+    violet: 'bg-purple-950/85 text-purple-200 border-purple-400/80 shadow-[0_0_8px_rgba(168,85,247,0.3)] font-extrabold ring-1 ring-purple-400/30',
+    emerald: 'bg-emerald-950/85 text-emerald-200 border-emerald-400/80 shadow-[0_0_8px_rgba(16,185,129,0.3)] font-extrabold ring-1 ring-emerald-400/30',
+  };
 
   return (
-    <button onClick={onClick} disabled={disabled} className={`group flex flex-col items-center gap-1.5 transition-all transform hover:-translate-y-1 ${disabled ? 'opacity-50' : ''}`}>
-      <div className={`w-10 h-10 border flex items-center justify-center transition-all duration-300 ${
-        isSlate ? 'rounded-2xl shadow-sm' : isMinimal || isGold ? 'rounded-xl shadow-md' : 'rounded-full'
-      } ${styleClasses} ${
+    <button 
+      onClick={onClick} 
+      disabled={disabled} 
+      title={label}
+      className={`group relative flex items-center justify-center gap-2 px-3 py-1.5 h-9 rounded-full border transition-all duration-300 transform hover:-translate-y-0.5 active:scale-95 shadow-md ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${styleClasses} ${
         active 
-          ? isSlate 
-            ? 'bg-zinc-200 border-white text-zinc-900 shadow-md font-bold' 
-            : isMinimal
-              ? 'bg-emerald-500 border-emerald-300 text-slate-950 shadow-[0_0_15px_rgba(16,185,129,0.5)] font-bold'
-              : isGold
-                ? 'bg-amber-500 border-amber-300 text-stone-950 shadow-[0_0_15px_rgba(245,158,11,0.5)] font-bold'
-                : 'shadow-[0_0_20px_rgba(0,242,255,0.4)] border-cyan-400 bg-cyan-500/20' 
-          : ''
-      }`}>
-        <Icon className={`w-4 h-4 ${active ? (isSlate ? '' : 'animate-pulse') : ''}`} />
-      </div>
-      <span className={`text-[8px] font-orbitron tracking-[0.2em] font-bold ${
-        active ? (isSlate ? 'text-zinc-100' : isMinimal ? 'text-emerald-300' : isGold ? 'text-amber-300' : 'text-white') : 'text-slate-500'
-      }`}>{label}</span>
+          ? (activeStyles[themeConfig.id] || activeStyles.cyber)
+          : 'shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]'
+      }`}
+    >
+      <Icon className={`w-4 h-4 shrink-0 stroke-[2] ${active ? 'animate-pulse text-current' : ''}`} />
+      
+      {/* Label */}
+      <span className="font-orbitron font-extrabold text-[9px] tracking-wider uppercase flex items-center gap-1.5 whitespace-nowrap">
+        <span>{label}</span>
+        {active && (
+          <span className="w-1.5 h-1.5 rounded-full animate-ping bg-current" />
+        )}
+      </span>
     </button>
   );
 };

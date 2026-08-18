@@ -1,7 +1,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { LogEntry } from '../types';
-import { User, Cpu, AlertTriangle, CheckCircle2, Info, XCircle, Terminal as TerminalIcon } from 'lucide-react';
+import { User, Cpu, AlertTriangle, CheckCircle2, Info, XCircle, Terminal as TerminalIcon, Wrench, Eye, Database } from 'lucide-react';
 
 interface TerminalProps {
   logs: LogEntry[];
@@ -24,75 +24,47 @@ const Terminal: React.FC<TerminalProps> = ({ logs, theme = 'cyber' }) => {
   }, [logs]);
 
   return (
-    <div className={`flex-1 font-mono text-[12px] overflow-hidden flex flex-col transition-all duration-300 ${
-      isSlate
-        ? 'bg-zinc-950/90 text-slate-200 border-t border-x border-slate-800 rounded-t-2xl shadow-xl'
-        : isMinimal
-          ? 'bg-[#090d16]/90 text-slate-100 border-t border-x border-emerald-500/20 rounded-t-3xl shadow-xl backdrop-blur-xl'
-          : isGold
-            ? 'bg-[#120e0a]/90 text-amber-100 border-t border-x border-amber-500/20 rounded-t-3xl shadow-xl backdrop-blur-xl'
-            : 'bg-black/95 border-glow backdrop-blur-2xl'
-    }`}>
-      {/* Terminal Header */}
-      <div className={`flex items-center justify-between px-4 py-2 sticky top-0 z-10 transition-all ${
-        isSlate
-          ? 'bg-zinc-900/95 border-b border-slate-800 text-slate-300'
-          : isMinimal
-            ? 'bg-emerald-950/30 border-b border-emerald-500/20 text-emerald-300'
-            : isGold
-              ? 'bg-amber-950/30 border-b border-amber-500/20 text-amber-300'
-              : 'bg-slate-900/90 border-b border-cyan-500/30 text-cyan-400'
-      }`}>
-        <div className="flex items-center gap-3">
-          <div className={`w-2 h-2 rounded-full ${
-            isSlate ? 'bg-zinc-300 shadow-sm' : isMinimal ? 'bg-emerald-400 animate-pulse shadow-[0_0_8px_#10b981]' : isGold ? 'bg-amber-400 animate-pulse shadow-[0_0_8px_#f59e0b]' : 'bg-cyan-400 animate-pulse shadow-[0_0_10px_#00f2ff]'
-          }`} />
-          <span className={`font-orbitron font-bold tracking-[0.25em] text-[10px] uppercase flex items-center gap-2 ${
-            isSlate ? 'text-zinc-200' : isMinimal ? 'text-emerald-300' : isGold ? 'text-amber-300' : 'text-cyan-400'
+    <div className="flex-1 font-mono text-[11px] sm:text-[12px] overflow-hidden flex flex-col h-full bg-transparent">
+      {/* Sleek Unboxed Header */}
+      <div className="flex items-center justify-between pb-2 border-b border-cyan-500/20 mb-2 px-1 shrink-0">
+        <div className="flex items-center gap-2">
+          <TerminalIcon className={`w-3.5 h-3.5 ${isSlate ? 'text-zinc-300' : isMinimal ? 'text-emerald-400' : isGold ? 'text-amber-400' : 'text-cyan-400'}`} />
+          <span className={`font-orbitron font-extrabold tracking-[0.25em] text-[10px] uppercase ${
+            isSlate ? 'text-zinc-200' : isMinimal ? 'text-emerald-300' : isGold ? 'text-amber-300' : 'text-cyan-300'
           }`}>
-            <TerminalIcon className="w-3.5 h-3.5" />
-            Neural_Link_Logs
+            SYSTEM TIMELINE // LIVE CONSOLE
           </span>
         </div>
-        <div className="flex items-center gap-4">
-          <span className="text-slate-400 text-[9px] font-mono">
-            Entries: {logs.length}
+        <div className="flex items-center gap-3 text-[9px]">
+          <span className="text-slate-400 font-mono">
+            {logs.length} ENTRIES
           </span>
-          <span className="text-emerald-400 text-[8px] tracking-tight font-orbitron uppercase hidden sm:inline-flex items-center gap-1">
-            <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-ping" />
-            Stream: Active
+          <span className="text-cyan-400 tracking-tight font-orbitron uppercase hidden sm:inline-flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-ping" />
+            STREAMING
           </span>
         </div>
       </div>
       
-      {/* Terminal Content / Conversation Stream */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3.5 custom-scroll scroll-smooth">
+      {/* Chronological Stream Logs - No Speech Bubbles */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto pr-1 space-y-1.5 custom-scroll scroll-smooth">
         {logs.map((log) => {
           const formattedTime = new Date(log.timestamp).toLocaleTimeString([], { hour12: false, minute: '2-digit', second: '2-digit' });
 
           if (log.source === 'OPERATOR') {
             return (
-              <div key={log.id} className="flex flex-col gap-1.5 animate-in slide-in-from-left-2 duration-300 max-w-[96%] sm:max-w-[90%] my-1">
+              <div key={log.id} className="group flex flex-col gap-0.5 py-1 px-1.5 rounded transition-all duration-200 hover:bg-blue-500/10 border-b border-cyan-500/10">
                 <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold font-orbitron uppercase tracking-wider bg-blue-500/20 text-blue-300 border border-blue-400/30">
-                    <User className="w-2.5 h-2.5 text-blue-400" />
-                    OPERATOR [SIR]
+                  <span className="text-[9px] font-mono opacity-50 text-slate-400">
+                    {formattedTime}
                   </span>
-                  <span className="text-slate-500 text-[9px] font-mono opacity-60">
-                    [{formattedTime}]
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[8px] font-extrabold font-orbitron uppercase tracking-wider bg-blue-500/20 text-blue-300 border border-blue-400/30">
+                    <User className="w-2.5 h-2.5 text-blue-400" />
+                    OPERATOR
                   </span>
                 </div>
-                
-                <div className={`p-3 rounded-r-xl rounded-b-xl border-l-4 border-blue-500/80 leading-relaxed font-sans sm:font-mono text-[13.5px] whitespace-pre-wrap break-words shadow-md transition-all ${
-                  isSlate
-                    ? 'bg-zinc-800/80 border-y border-r border-slate-700/60 text-slate-100'
-                    : isMinimal
-                      ? 'bg-emerald-950/20 border-y border-r border-emerald-500/20 text-slate-100'
-                      : isGold
-                        ? 'bg-amber-950/20 border-y border-r border-amber-500/20 text-amber-100'
-                        : 'bg-blue-950/25 border-y border-r border-blue-500/20 text-slate-100'
-                }`}>
-                  {log.message}
+                <div className="pl-2 border-l-2 border-blue-400/60 text-slate-100 font-mono leading-relaxed text-[12px] whitespace-pre-wrap break-words py-0.5">
+                  {log?.message}
                 </div>
               </div>
             );
@@ -100,59 +72,90 @@ const Terminal: React.FC<TerminalProps> = ({ logs, theme = 'cyber' }) => {
 
           if (log.source === 'JARVIS') {
             return (
-              <div key={log.id} className="flex flex-col gap-1.5 animate-in slide-in-from-left-2 duration-300 max-w-[98%] sm:max-w-[94%] my-1">
+              <div key={log.id} className="group flex flex-col gap-0.5 py-1 px-1.5 rounded transition-all duration-200 hover:bg-cyan-500/10 border-b border-cyan-500/10">
                 <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold font-orbitron uppercase tracking-wider bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-[0_0_8px_rgba(0,242,255,0.2)]">
-                    <Cpu className="w-2.5 h-2.5 text-cyan-400 animate-pulse" />
-                    JARVIS [AI CORE]
+                  <span className="text-[9px] font-mono opacity-50 text-slate-400">
+                    {formattedTime}
                   </span>
-                  <span className="text-slate-500 text-[9px] font-mono opacity-60">
-                    [{formattedTime}]
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[8px] font-extrabold font-orbitron uppercase tracking-wider bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-[0_0_8px_rgba(0,242,255,0.25)]">
+                    <Cpu className="w-2.5 h-2.5 text-cyan-400 animate-pulse" />
+                    JARVIS
                   </span>
                 </div>
-                
-                <div className={`p-3.5 rounded-r-xl rounded-b-xl border-l-4 border-cyan-400/90 leading-relaxed font-sans sm:font-mono text-[13.5px] whitespace-pre-wrap break-words shadow-lg transition-all ${
-                  isSlate
-                    ? 'bg-zinc-900/95 border-y border-r border-slate-700 text-zinc-100'
-                    : isMinimal
-                      ? 'bg-[#0c1421]/90 border-y border-r border-emerald-500/30 text-slate-100'
-                      : isGold
-                        ? 'bg-[#1a140f]/90 border-y border-r border-amber-500/30 text-amber-50'
-                        : 'bg-cyan-950/30 border-y border-r border-cyan-500/30 text-cyan-50 shadow-[0_0_15px_rgba(0,242,255,0.05)]'
-                }`}>
+                <div className="pl-2 border-l-2 border-cyan-400/80 text-cyan-100 font-mono leading-relaxed text-[12px] whitespace-pre-wrap break-words py-0.5">
                   {log.message}
                 </div>
               </div>
             );
           }
 
-          // SYSTEM / TELEMETRY LOGS
-          const statusIcon = log.type === 'error' ? <XCircle className="w-3 h-3 text-red-400 shrink-0" /> :
-                             log.type === 'warning' ? <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0" /> :
-                             log.type === 'success' ? <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" /> :
-                             <Info className="w-3 h-3 text-slate-400 shrink-0" />;
+          // TOOL / VISION / MEMORY / SYSTEM / AI / WARNING / ERROR / INFO
+          const logMsg = log?.message || '';
+          const isTool = logMsg.includes('Tool') || logMsg.includes('Action') || logMsg.includes('Executing');
+          const isVision = logMsg.includes('Vision') || logMsg.includes('Optic') || logMsg.includes('Camera') || logMsg.includes('Screen');
+          const isMemory = logMsg.includes('Memory') || logMsg.includes('Storage') || logMsg.includes('Cluster') || logMsg.includes('Anchor');
+          const isAi = log.source === 'JARVIS' || logMsg.includes('Neural') || logMsg.includes('Reasoning');
+
+          let icon = <Info className="w-3 h-3 text-emerald-400 shrink-0" />;
+          let badgeText = log.source || 'INFO';
+          let badgeClass = 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30';
+
+          if (log.type === 'error') {
+            icon = <XCircle className="w-3 h-3 text-red-400 shrink-0" />;
+            badgeText = '🔴 ERROR';
+            badgeClass = 'bg-red-500/20 text-red-300 border-red-400/40 shadow-[0_0_8px_rgba(239,68,68,0.3)]';
+          } else if (log.type === 'warning') {
+            icon = <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0" />;
+            badgeText = '🟡 WARNING';
+            badgeClass = 'bg-amber-500/20 text-amber-300 border-amber-400/40 shadow-[0_0_8px_rgba(245,158,11,0.3)]';
+          } else if (isTool) {
+            icon = <Wrench className="w-3 h-3 text-violet-400 shrink-0" />;
+            badgeText = '🛠️ TOOL';
+            badgeClass = 'bg-violet-500/20 text-violet-300 border-violet-400/30';
+          } else if (isVision) {
+            icon = <Eye className="w-3 h-3 text-amber-300 shrink-0" />;
+            badgeText = '👁️ VISION';
+            badgeClass = 'bg-amber-500/20 text-amber-300 border-amber-400/30';
+          } else if (isMemory) {
+            icon = <Database className="w-3 h-3 text-purple-400 shrink-0" />;
+            badgeText = '🟣 MEMORY';
+            badgeClass = 'bg-purple-500/20 text-purple-300 border-purple-400/30';
+          } else if (isAi) {
+            icon = <Cpu className="w-3 h-3 text-cyan-400 shrink-0" />;
+            badgeText = '🔵 AI CORE';
+            badgeClass = 'bg-cyan-500/20 text-cyan-300 border-cyan-400/40 shadow-[0_0_8px_rgba(0,242,255,0.25)]';
+          } else {
+            icon = <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />;
+            badgeText = '🟢 SYSTEM';
+            badgeClass = 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30';
+          }
 
           return (
-            <div key={log.id} className="flex items-center gap-2 px-2 py-1 my-0.5 rounded bg-slate-900/40 border border-white/5 text-[11px] font-mono text-slate-400 animate-in fade-in duration-200">
-              <span className="text-slate-600 text-[9px] shrink-0 font-mono opacity-60">
-                [{formattedTime}]
+            <div key={log.id} className="flex items-start gap-2 px-1.5 py-1 rounded transition-all duration-200 hover:bg-slate-800/40 border-b border-white/5 font-mono text-[11px]">
+              <span className="text-slate-500 text-[9px] shrink-0 font-mono opacity-50 pt-0.5">
+                {formattedTime}
               </span>
-              {statusIcon}
-              <span className={`truncate ${
-                log.type === 'error' ? 'text-red-400 font-semibold' :
-                log.type === 'warning' ? 'text-amber-300' :
-                log.type === 'success' ? 'text-emerald-300' : 'text-slate-400'
-              }`}>
-                {log.message}
+              <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold font-orbitron uppercase border shrink-0 ${badgeClass}`}>
+                {badgeText}
               </span>
+              <div className="flex items-center gap-1.5 min-w-0 pt-0.5">
+                {icon}
+                <span className={`truncate ${
+                  log.type === 'error' ? 'text-red-400 font-semibold' :
+                  log.type === 'warning' ? 'text-amber-300' :
+                  log.type === 'success' ? 'text-emerald-300' : 'text-slate-300'
+                }`}>
+                  {log?.message}
+                </span>
+              </div>
             </div>
           );
         })}
 
-        {/* Active Stream Indicator */}
-        <div className="flex items-center gap-2 pt-1 opacity-70">
+        {/* Stream Synchronized Bar */}
+        <div className="flex items-center gap-2 pt-2 opacity-60">
           <span className="w-1.5 h-3 bg-cyan-400 animate-pulse" />
-          <span className="text-[9px] font-mono text-slate-500">Neural Buffer Synchronized</span>
+          <span className="text-[9px] font-mono text-cyan-400/70 uppercase tracking-widest">Neural Stream Active • Waiting for events...</span>
         </div>
       </div>
     </div>

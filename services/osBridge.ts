@@ -113,27 +113,27 @@ export const osBridge = {
       case 'system_metrics':
       case 'system_info':
         return {
-          success: true,
+          success: false,
+          bridgeOffline: true,
+          message: "LOCAL DEVICE BRIDGE OFFLINE: Hardware telemetry (CPU, RAM, GPU, Disk, Battery, Temp) unavailable in Browser Mode. Connect local daemon on localhost:8000 for real device telemetry.",
           data: {
-            cpu_usage: `${Math.floor(12 + Math.random() * 15)}%`,
-            memory_usage: `${(4.2 + Math.random() * 0.4).toFixed(1)}GB / 16.0GB (28%)`,
-            gpu_usage: `${Math.floor(8 + Math.random() * 10)}%`,
-            disk_free: "92GB Free on C: Drive",
-            battery: "94% (Plugged in)",
-            temperature: "42°C (Optimal)",
-            network_speed: "240 Mbps Down / 45 Mbps Up",
-            os_version: "Windows 11 Pro 23H2 (Build 22631)"
+            cpu_usage: "Unavailable (Browser Mode)",
+            memory_usage: "Unavailable (Browser Mode)",
+            gpu_usage: "Unavailable",
+            disk_free: "Unavailable",
+            battery: "Unavailable",
+            temperature: "Unavailable",
+            network_speed: "Unavailable",
+            os_version: "Web Browser Environment"
           }
         };
 
       case 'process_list':
         return {
-          success: true,
-          processes: [
-            { pid: 1042, name: 'code.exe', cpu: '2.1%', mem: '410MB' },
-            { pid: 2180, name: 'chrome.exe', cpu: '5.8%', mem: '1240MB' },
-            { pid: 512, name: 'system_idle.exe', cpu: '88.0%', mem: '12MB' }
-          ]
+          success: false,
+          bridgeOffline: true,
+          message: "LOCAL DEVICE BRIDGE OFFLINE: Native host process inspection requires local device bridge connection.",
+          processes: []
         };
 
       case 'power_control':

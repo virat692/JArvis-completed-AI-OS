@@ -40,60 +40,63 @@ const UpgradePanel: React.FC<UpgradePanelProps> = ({ requests, onClear, onRemove
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto p-4 custom-scroll">
         {requests.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center opacity-40 text-center">
-            <CheckCircle className="w-12 h-12 mb-2" />
-            <p className="text-sm">System fully optimized.<br/>No capability gaps detected.</p>
+            <CheckCircle className="w-12 h-12 mb-2 text-cyan-400 animate-pulse" />
+            <p className="text-sm font-orbitron">System fully optimized.<br/>No capability gaps detected.</p>
           </div>
         ) : (
-          requests.map((req) => (
-            <div 
-              key={req.id} 
-              className="p-3 bg-cyan-500/5 border border-cyan-500/20 rounded-lg relative group hover:border-cyan-500/40 transition-all"
-            >
-              <button 
-                onClick={() => onRemove(req.id)}
-                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 hover:bg-red-500/20 text-red-400 rounded transition-all"
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {requests.map((req) => (
+              <div 
+                key={req.id} 
+                className="p-3.5 bg-cyan-500/5 border border-cyan-500/20 rounded-xl relative group hover:border-cyan-400/50 hover:bg-cyan-500/10 transition-all"
               >
-                <Trash2 className="w-3 h-3" />
-              </button>
+                <button 
+                  onClick={() => onRemove(req.id)}
+                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 hover:bg-red-500/20 text-red-400 rounded transition-all"
+                  title="Remove upgrade request"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
 
-              <div className="flex items-start gap-3">
-                <div className={`mt-1 p-1 rounded ${
-                  req.priority === 'high' ? 'bg-red-500/20 text-red-400' :
-                  req.priority === 'medium' ? 'bg-amber-500/20 text-amber-400' :
-                  'bg-blue-500/20 text-blue-400'
-                }`}>
-                  <AlertTriangle className="w-4 h-4" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs font-mono opacity-60">
-                      {new Date(req.timestamp).toLocaleDateString()}
-                    </span>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase ${
-                      req.priority === 'high' ? 'bg-red-500/20 text-red-400' :
-                      req.priority === 'medium' ? 'bg-amber-500/20 text-amber-400' :
-                      'bg-blue-500/20 text-blue-400'
-                    }`}>
-                      {req.priority}
-                    </span>
+                <div className="flex items-start gap-3">
+                  <div className={`mt-1 p-1.5 rounded-lg border ${
+                    req.priority === 'high' ? 'bg-red-500/20 text-red-400 border-red-500/30' :
+                    req.priority === 'medium' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
+                    'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                  }`}>
+                    <AlertTriangle className="w-4 h-4" />
                   </div>
-                  <h3 className="font-bold text-sm mb-1 truncate text-white">{req.task}</h3>
-                  <p className="text-xs opacity-80 leading-relaxed mb-2">
-                    <span className="text-amber-400">Reason:</span> {req.reason}
-                  </p>
-                  {req.suggested_module && (
-                    <div className="text-[10px] bg-cyan-500/10 p-1.5 rounded border border-cyan-500/10 flex items-center gap-1.5">
-                      <span className="text-cyan-300 font-bold">SUGGESTED:</span>
-                      <span className="truncate">{req.suggested_module}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-[10px] font-mono text-slate-400">
+                        {new Date(req.timestamp).toLocaleDateString()}
+                      </span>
+                      <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                        req.priority === 'high' ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
+                        req.priority === 'medium' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                        'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                      }`}>
+                        {req.priority}
+                      </span>
                     </div>
-                  )}
+                    <h3 className="font-bold text-sm mb-1 truncate text-white">{req.task}</h3>
+                    <p className="text-xs text-slate-300 leading-relaxed mb-2">
+                      <span className="text-amber-400 font-bold">Reason:</span> {req.reason}
+                    </p>
+                    {req.suggested_module && (
+                      <div className="text-[10px] bg-cyan-500/10 p-2 rounded-lg border border-cyan-500/20 flex items-center gap-1.5 font-mono">
+                        <span className="text-cyan-300 font-bold">MODULE:</span>
+                        <span className="truncate text-slate-200">{req.suggested_module}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            ))}
+          </div>
         )}
       </div>
       

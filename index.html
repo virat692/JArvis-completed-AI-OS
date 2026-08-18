@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>JARVIS AI OS - MARK III</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@300;400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&family=Rajdhani:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Exo+2:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
       :root {
         --neon-cyan: #00f2ff;
@@ -14,15 +14,48 @@
         --neon-purple: #7000ff;
         --danger-red: #ff003c;
       }
+      * {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
+        text-shadow: none !important;
+      }
       body {
         background-color: #01040a;
         color: #e2e8f0;
-        font-family: 'Space Grotesk', sans-serif;
+        font-family: 'Plus Jakarta Sans', 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         overflow: hidden;
         margin: 0;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
       }
       .font-orbitron { font-family: 'Orbitron', sans-serif; }
       .font-mono { font-family: 'JetBrains Mono', monospace; }
+      .font-space { font-family: 'Space Grotesk', sans-serif; }
+      .font-rajdhani { font-family: 'Rajdhani', sans-serif; }
+      .font-modern { font-family: 'Plus Jakarta Sans', sans-serif; }
+      .font-exo { font-family: 'Exo 2', sans-serif; }
+
+      /* Dynamic Font Style Overrides across both modes */
+      [data-font="space"] body, [data-font="space"] div, [data-font="space"] p, [data-font="space"] span, [data-font="space"] button, [data-font="space"] input, [data-font="space"] select, [data-font="space"] textarea, [data-font="space"] h1, [data-font="space"] h2, [data-font="space"] h3, [data-font="space"] h4 {
+        font-family: 'Space Grotesk', sans-serif;
+      }
+      [data-font="orbitron"] body, [data-font="orbitron"] div, [data-font="orbitron"] p, [data-font="orbitron"] span, [data-font="orbitron"] button, [data-font="orbitron"] input, [data-font="orbitron"] select, [data-font="orbitron"] textarea, [data-font="orbitron"] h1, [data-font="orbitron"] h2, [data-font="orbitron"] h3, [data-font="orbitron"] h4 {
+        font-family: 'Orbitron', sans-serif;
+      }
+      [data-font="rajdhani"] body, [data-font="rajdhani"] div, [data-font="rajdhani"] p, [data-font="rajdhani"] span, [data-font="rajdhani"] button, [data-font="rajdhani"] input, [data-font="rajdhani"] select, [data-font="rajdhani"] textarea, [data-font="rajdhani"] h1, [data-font="rajdhani"] h2, [data-font="rajdhani"] h3, [data-font="rajdhani"] h4 {
+        font-family: 'Rajdhani', sans-serif;
+      }
+      [data-font="mono"] body, [data-font="mono"] div, [data-font="mono"] p, [data-font="mono"] span, [data-font="mono"] button, [data-font="mono"] input, [data-font="mono"] select, [data-font="mono"] textarea, [data-font="mono"] h1, [data-font="mono"] h2, [data-font="mono"] h3, [data-font="mono"] h4 {
+        font-family: 'JetBrains Mono', monospace;
+      }
+      [data-font="modern"] body, [data-font="modern"] div, [data-font="modern"] p, [data-font="modern"] span, [data-font="modern"] button, [data-font="modern"] input, [data-font="modern"] select, [data-font="modern"] textarea, [data-font="modern"] h1, [data-font="modern"] h2, [data-font="modern"] h3, [data-font="modern"] h4 {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+      }
+      [data-font="exo"] body, [data-font="exo"] div, [data-font="exo"] p, [data-font="exo"] span, [data-font="exo"] button, [data-font="exo"] input, [data-font="exo"] select, [data-font="exo"] textarea, [data-font="exo"] h1, [data-font="exo"] h2, [data-font="exo"] h3, [data-font="exo"] h4 {
+        font-family: 'Exo 2', sans-serif;
+      }
 
       .glass {
         background: rgba(10, 15, 25, 0.4);
@@ -30,106 +63,137 @@
         border: 1px solid rgba(0, 242, 255, 0.1);
       }
       
-      .text-glow { text-shadow: 0 0 10px var(--neon-cyan); }
-      .border-glow { box-shadow: 0 0 20px rgba(0, 242, 255, 0.15); }
+      /* No text glow on words to prevent blurry pixelation on zoom */
+      .text-glow { text-shadow: none !important; }
+      .border-glow { box-shadow: 0 0 25px rgba(0, 242, 255, 0.18); }
 
-      /* Neural Grid Background */
-      .neural-bg {
-        position: fixed;
-        inset: 0;
-        background-image: 
-          radial-gradient(circle at 2px 2px, rgba(0, 242, 255, 0.05) 1px, transparent 0);
-        background-size: 40px 40px;
-        pointer-events: none;
-        z-index: -1;
+      /* Global ultra-sharp crisp text rendering across all HTML elements */
+      h1, h2, h3, h4, h5, h6, p, span, button, a, label, input, textarea, select {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
+        text-shadow: none !important;
       }
 
-      @keyframes scanline {
-        0% { transform: translateY(-100%); }
-        100% { transform: translateY(100%); }
+      /* Custom Cinematic HUD Keyframe Animations */
+      @keyframes scan {
+        0% { top: 0%; opacity: 0.8; }
+        50% { opacity: 1; }
+        100% { top: 96%; opacity: 0.8; }
       }
-      .scanline-overlay {
-        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background: linear-gradient(to bottom, transparent 50%, rgba(0, 242, 255, 0.01) 50%);
-        background-size: 100% 4px;
-        pointer-events: none;
-        z-index: 100;
+      @keyframes heartbeat {
+        0%, 100% { transform: scaleX(1); opacity: 0.7; }
+        50% { transform: scaleX(1.05); opacity: 1; }
       }
-
-      .vignette {
-        display: none !important;
+      @keyframes floatDust {
+        0% { transform: translateY(0px) translateX(0px); opacity: 0.2; }
+        50% { transform: translateY(-30px) translateX(15px); opacity: 0.8; }
+        100% { transform: translateY(-60px) translateX(-10px); opacity: 0; }
       }
-
-      @keyframes radar-beam {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
-      }
-      .radar-animation { animation: radar-beam 5s linear infinite; }
-      
-      .custom-scroll::-webkit-scrollbar { width: 4px; }
-      .custom-scroll::-webkit-scrollbar-track { background: transparent; }
-      .custom-scroll::-webkit-scrollbar-thumb { background: var(--neon-cyan); border-radius: 10px; }
-      
-      /* Hexagon Pattern */
-      .hex-overlay {
-        position: fixed; inset: 0;
-        opacity: 0.03;
-        background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iMzAiIHZpZXdCb3g9IjAgMCA2MCAzMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMzAgMEw2MCAxNUwzMCAzMEwwIDE1TDMwIDBaIiBmaWxsPSJub25lIiBzdHJva2U9IiMwMGYyZmYiIHN0cm9rZS13aWR0aD0iMSIvPjwvc3ZnPg==');
-        pointer-events: none;
-        z-index: -1;
+      @keyframes beamPulse {
+        0%, 100% { opacity: 0.3; stroke-dashoffset: 0; }
+        50% { opacity: 0.9; stroke-dashoffset: -20; }
       }
 
-      /* Smooth Slate Grey Theme Overrides */
-      [data-theme="slate"] body {
-        background-color: #12151c !important;
-        color: #f1f5f9;
+      /* Global Custom Dark Theme Scrollbars - Rule #4 */
+      *::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
       }
-      [data-theme="slate"] .scanline-overlay,
-      [data-theme="slate"] .hex-overlay {
-        display: none !important;
+      *::-webkit-scrollbar-track {
+        background: rgba(8, 15, 25, 0.9) !important;
+        border-radius: 999px;
       }
-      [data-theme="slate"] .neural-bg {
-        background-image: radial-gradient(circle at 2px 2px, rgba(255, 255, 255, 0.05) 1px, transparent 0);
+      *::-webkit-scrollbar-thumb {
+        background: #00D8FF !important;
+        border-radius: 999px;
+        border: none !important;
+        box-shadow: 0 0 10px rgba(0, 216, 255, 0.5);
       }
-      [data-theme="slate"] .custom-scroll::-webkit-scrollbar-thumb {
-        background: #475569 !important;
-        border-radius: 10px;
+      *::-webkit-scrollbar-thumb:hover {
+        background: #2EEBFF !important;
+        box-shadow: 0 0 15px rgba(46, 235, 255, 0.8);
+      }
+      * {
+        scrollbar-width: thin;
+        scrollbar-color: #00D8FF rgba(8, 15, 25, 0.9);
       }
 
-      /* Minimalist Executive Glass Theme */
-      [data-theme="minimal"] body {
-        background-color: #0b0f17 !important;
-        color: #f1f5f9;
+      /* Hide scrollbar utility */
+      .scrollbar-none::-webkit-scrollbar,
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
       }
-      [data-theme="minimal"] .scanline-overlay,
-      [data-theme="minimal"] .hex-overlay {
-        display: none !important;
+      .scrollbar-none,
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
       }
-      [data-theme="minimal"] .neural-bg {
-        background-image: radial-gradient(circle at 1px 1px, rgba(16, 185, 129, 0.08) 1px, transparent 0);
-        background-size: 32px 32px;
+
+      /* Smooth Global Theme Transitions & Theme Specific Styling */
+      body, button, div, span, nav, header, aside, section {
+        transition: background-color 300ms ease, border-color 300ms ease, box-shadow 300ms ease;
       }
-      [data-theme="minimal"] .custom-scroll::-webkit-scrollbar-thumb {
+
+      /* Theme 1: Cyber Neon HUD (Default) */
+      [data-theme="cyber"] body {
+        background-color: #01040a !important;
+        color: #e2e8f0;
+      }
+      [data-theme="cyber"] *::-webkit-scrollbar-thumb {
+        background: #00D8FF !important;
+        box-shadow: 0 0 10px rgba(0, 216, 255, 0.5);
+      }
+
+      /* Theme 2: Crimson Alert Core (Emergency AI Protocol) */
+      [data-theme="crimson"] body {
+        background-color: #050002 !important;
+        color: #ffe4e6;
+      }
+      [data-theme="crimson"] *::-webkit-scrollbar-track {
+        background: rgba(20, 3, 7, 0.9) !important;
+      }
+      [data-theme="crimson"] *::-webkit-scrollbar-thumb {
+        background: #ff003c !important;
+        box-shadow: 0 0 12px rgba(255, 0, 60, 0.6);
+      }
+      [data-theme="crimson"] ::selection {
+        background: #9f1239;
+        color: #ffffff;
+      }
+
+      /* Theme 3: Quantum Violet (Artificial Super Intelligence) */
+      [data-theme="violet"] body {
+        background-color: #050414 !important;
+        color: #f3e8ff;
+      }
+      [data-theme="violet"] *::-webkit-scrollbar-track {
+        background: rgba(15, 9, 36, 0.9) !important;
+      }
+      [data-theme="violet"] *::-webkit-scrollbar-thumb {
+        background: #a855f7 !important;
+        box-shadow: 0 0 12px rgba(168, 85, 247, 0.6);
+      }
+      [data-theme="violet"] ::selection {
+        background: #6b21a8;
+        color: #ffffff;
+      }
+
+      /* Theme 4: Emerald Sentinel (Military AI & Satellite Defense) */
+      [data-theme="emerald"] body {
+        background-color: #020b08 !important;
+        color: #ecfdf5;
+      }
+      [data-theme="emerald"] *::-webkit-scrollbar-track {
+        background: rgba(5, 26, 18, 0.9) !important;
+      }
+      [data-theme="emerald"] *::-webkit-scrollbar-thumb {
         background: #10b981 !important;
-        border-radius: 10px;
+        box-shadow: 0 0 12px rgba(16, 185, 129, 0.6);
       }
-
-      /* Titanium Gold Luxury Theme */
-      [data-theme="gold"] body {
-        background-color: #12100e !important;
-        color: #fdf8f0;
-      }
-      [data-theme="gold"] .scanline-overlay,
-      [data-theme="gold"] .hex-overlay {
-        display: none !important;
-      }
-      [data-theme="gold"] .neural-bg {
-        background-image: radial-gradient(circle at 1px 1px, rgba(245, 158, 11, 0.08) 1px, transparent 0);
-        background-size: 28px 28px;
-      }
-      [data-theme="gold"] .custom-scroll::-webkit-scrollbar-thumb {
-        background: #f59e0b !important;
-        border-radius: 10px;
+      [data-theme="emerald"] ::selection {
+        background: #065f46;
+        color: #ffffff;
       }
     </style>
     <script type="importmap">
@@ -145,9 +209,6 @@
     </script>
   </head>
   <body>
-    <div class="neural-bg"></div>
-    <div class="hex-overlay"></div>
-    <div class="scanline-overlay"></div>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
