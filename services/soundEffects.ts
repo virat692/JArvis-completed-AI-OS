@@ -20,6 +20,8 @@ export function playMechanicalClick() {
   playTickSound();
 }
 
+export const playClick = playTickSound;
+
 export function setSoundVolume(volume: number) {
   soundVolume = Math.max(0, Math.min(1, volume));
 }
@@ -325,3 +327,185 @@ export function playBootCompleteSound() {
     // ignore audio errors
   }
 }
+
+/**
+ * 6. WAKE CHIME: Dual futuristic digital chime for "Hey Jarvis" detection
+ */
+export function playWakeChimeSound() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  try {
+    const now = ctx.currentTime;
+    // Harmonic rise 880Hz -> 1320Hz -> 1760Hz
+    const freqs = [880, 1320, 1760];
+    freqs.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.05);
+
+      gain.gain.setValueAtTime(0, now + idx * 0.05);
+      gain.gain.linearRampToValueAtTime(0.18, now + idx * 0.05 + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.05 + 0.25);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now + idx * 0.05);
+      osc.stop(now + idx * 0.05 + 0.25);
+    });
+  } catch (e) {
+    // ignore
+  }
+}
+
+/**
+ * 7. PUSH-TO-TALK TACTICAL BEEP
+ */
+export function playPushToTalkBeep(isStart: boolean = true) {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  try {
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'triangle';
+    if (isStart) {
+      osc.frequency.setValueAtTime(700, now);
+      osc.frequency.exponentialRampToValueAtTime(1400, now + 0.05);
+    } else {
+      osc.frequency.setValueAtTime(1200, now);
+      osc.frequency.exponentialRampToValueAtTime(500, now + 0.05);
+    }
+
+    gain.gain.setValueAtTime(0.15, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.06);
+  } catch (e) {
+    // ignore
+  }
+}
+
+/**
+ * 8. DIRECTIVE COMPLETE CHIME: Accomplishment harmonic chord
+ */
+export function playDirectiveCompleteChime() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  try {
+    const now = ctx.currentTime;
+    const chord = [587.33, 739.99, 880.00, 1174.66]; // D-F#-A-D
+    chord.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.04);
+
+      gain.gain.setValueAtTime(0, now + idx * 0.04);
+      gain.gain.linearRampToValueAtTime(0.14, now + idx * 0.04 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.04 + 0.4);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now + idx * 0.04);
+      osc.stop(now + idx * 0.04 + 0.4);
+    });
+  } catch (e) {
+    // ignore
+  }
+}
+
+/**
+ * 9. ARC REACTOR SURGE: High energy sci-fi capacitor charging sound
+ */
+export function playArcReactorSound() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  try {
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const filter = ctx.createBiquadFilter();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(80, now);
+    osc.frequency.exponentialRampToValueAtTime(540, now + 0.4);
+
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(200, now);
+    filter.frequency.exponentialRampToValueAtTime(2400, now + 0.4);
+
+    gain.gain.setValueAtTime(0.02, now);
+    gain.gain.linearRampToValueAtTime(0.2, now + 0.2);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.45);
+  } catch (e) {
+    // ignore
+  }
+}
+
+/**
+ * Preview Voice Persona sample
+ */
+export function previewVoiceSample(voiceName: string) {
+  playWakeChimeSound();
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+
+  try {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(
+      `Hello Operator Virat. J.A.R.V.I.S. neural voice persona calibrated to ${voiceName}. All systems online.`
+    );
+    
+    // Adjust pitch and rate to mirror the selected Gemini voice personality
+    switch (voiceName.toLowerCase()) {
+      case 'charon':
+        utterance.pitch = 0.85;
+        utterance.rate = 1.05;
+        break;
+      case 'fenrir':
+        utterance.pitch = 0.7;
+        utterance.rate = 0.95;
+        break;
+      case 'puck':
+        utterance.pitch = 1.15;
+        utterance.rate = 1.15;
+        break;
+      case 'aoede':
+        utterance.pitch = 1.25;
+        utterance.rate = 1.0;
+        break;
+      case 'kore':
+        utterance.pitch = 1.0;
+        utterance.rate = 1.05;
+        break;
+      default:
+        utterance.pitch = 0.9;
+        utterance.rate = 1.0;
+    }
+    
+    window.speechSynthesis.speak(utterance);
+  } catch (e) {
+    console.warn('Voice preview speech error:', e);
+  }
+}
+

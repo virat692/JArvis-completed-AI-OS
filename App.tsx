@@ -5,7 +5,7 @@ import {
   Settings, Mic, MicOff, Terminal as TerminalIcon, 
   Power, Clock, Activity, Monitor, Layout, Database, Volume2, VolumeX,
   History as HistoryIcon, BrainCircuit, X, Globe, ChevronLeft, ChevronRight, RefreshCw, Search, Link as LinkIcon, FileText, Zap, Cpu, Laptop, Sparkles,
-  Code2, Tv, Sliders, Shield, Eye, Info, Bot
+  Code2, Tv, Sliders, Shield, Eye, Info, Bot, Keyboard, CloudSun
 } from 'lucide-react';
 
 import html2canvas from 'html2canvas';
@@ -31,25 +31,37 @@ import { RuntimePanel } from './components/RuntimePanel';
 import { WorkflowPanel } from './components/WorkflowPanel';
 import { AIProvidersModal } from './components/AIProvidersModal';
 import { TaskPanel } from './components/TaskPanel';
+import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { taskManager } from './services/taskManager';
 import { aiProviderManager, TaskCategory } from './services/AIProviderManager';
 import { runtimeEngine } from './runtime/runtimeEngine';
 import { workflowEngine } from './workflows/workflowEngine';
 import { eventBus } from './services/eventBus';
+import { wakeWordService } from './services/wakeWordService';
 import { 
   playTickSound, 
   playWhooshSound, 
   playDigitalPingSound, 
   playListeningHumSound, 
-  playSpeakingPulseSound 
+  playSpeakingPulseSound,
+  playWakeChimeSound,
+  playPushToTalkBeep,
+  playArcReactorSound
 } from './services/soundEffects';
 import { JarvisStatus, LogEntry, JarvisMode, MemoryEntry, UpgradeRequest, ChatSession, FontStyle, JarvisTheme, ConversationMessage, ConversationRole } from './types';
 import { getThemeConfig, normalizeThemeName } from './services/themeManager';
 import { encode, decode, decodeAudioData, resampleTo16kPCM } from './services/audioUtils';
 import { osBridge } from './services/osBridge';
+import { telemetryService } from './services/telemetryService';
+import { neuralSearchEngine } from './services/neuralSearchEngine';
 import { sendOpenRouterRequest } from './services/openRouterService';
 import { nemotronDelegation } from './services/nemotronDelegation';
 import { capabilityRegistry } from './services/capabilityRegistry';
+import { openWeatherService } from './services/openWeatherService';
+import { weatherControlService } from './services/weatherControlService';
+import { nvidiaOcrService } from './services/nvidiaOcrService';
+import { BrowserAgentHUD } from './components/BrowserAgentHUD';
+import { browserAgent } from './services/browserAgent';
 import { PURE_JARVIS_PROMPT, TONY_ATTITUDE_PROMPT, DEFAULT_VIRAT_PROFILE } from './constants/personalities';
 
 const JARVIS_SYSTEM_INSTRUCTION = `
@@ -229,6 +241,37 @@ const toolDeclarations: FunctionDeclaration[] = [
     }
   },
   // --- OS Control Features ---
+  {
+    name: 'get_weather_telemetry',
+    description: 'Query real-time meteorological observations, rain prediction, temperature, humidity, wind, and 5-day forecast for any city or location using OpenWeather.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        location: { type: Type.STRING, description: 'City name or geographical location (e.g. "Lucknow", "New Delhi", "Mumbai", "London", "New York")' },
+        query_type: { type: Type.STRING, enum: ['current', 'rain_prediction', 'tomorrow', 'forecast_5day', 'all'], description: 'Type of weather telemetry requested' }
+      },
+      required: ['location']
+    }
+  },
+  {
+    name: 'weather_control',
+    description: 'Systematically control all features, options, and views of the Atmospheric Weather Panel & Workspace GUI. Actions: open/close panel, set target city, track GPS, switch Celsius/Fahrenheit units, select/inspect forecast day cards, refresh telemetry, vocalize weather report.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        action: { 
+          type: Type.STRING, 
+          enum: ['open', 'close', 'toggle', 'set_city', 'track_gps', 'set_unit', 'toggle_unit', 'select_day', 'refresh', 'speak_report'],
+          description: 'The weather GUI operation to execute.'
+        },
+        city: { type: Type.STRING, description: 'City or location to switch the weather display to (e.g. "Lucknow", "Mumbai", "Tokyo", "London")' },
+        unit: { type: Type.STRING, enum: ['C', 'F'], description: 'Temperature unit: C for Celsius, F for Fahrenheit' },
+        day_index: { type: Type.NUMBER, description: 'Index of forecast day card to inspect (0 to 4)' },
+        query_type: { type: Type.STRING, enum: ['current', 'rain_prediction', 'tomorrow', 'forecast_5day', 'all'], description: 'Weather query type for spoken reports' }
+      },
+      required: ['action']
+    }
+  },
   {
     name: 'os_master_control',
     description: 'Open or close the JARVIS OS Master Control Console UI.',
@@ -628,6 +671,18 @@ const toolDeclarations: FunctionDeclaration[] = [
     }
   },
   {
+    name: 'neural_web_search',
+    description: 'Execute high-precision real-time web search and content retrieval via Tavily or Exa neural indices.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        query: { type: Type.STRING, description: 'The query to search the live web for.' },
+        provider: { type: Type.STRING, enum: ['tavily', 'exa', 'auto'], description: 'Optional preferred search index.' }
+      },
+      required: ['query']
+    }
+  },
+  {
     name: 'initiate_deep_research',
     description: 'Initiate an autonomous multi-step research loop for complex topics.',
     parameters: {
@@ -710,6 +765,30 @@ const toolDeclarations: FunctionDeclaration[] = [
       },
       required: ['action']
     }
+  },
+  {
+    name: 'browser_agent_task',
+    description: 'Execute an autonomous browser agent task using the Observe-Think-Act-Verify (OTAV) loop. JARVIS will navigate to target sites, parse interactive elements, execute intelligent clicks/typing/scrolling, recover from failures, extract structured data, and display the synthesized result in the Neural Workspace.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        goal: { type: Type.STRING, description: 'The natural language objective or research goal to accomplish on the web.' },
+        target_url: { type: Type.STRING, description: 'Optional initial target URL to navigate to (e.g. https://huggingface.co/models).' }
+      },
+      required: ['goal']
+    }
+  },
+  {
+    name: 'browser_agent_control',
+    description: 'Control the Autonomous Browser Agent subsystem (open_hud, close_hud, cancel, authorize).',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        action: { type: Type.STRING, enum: ['open_hud', 'close_hud', 'cancel', 'authorize'], description: 'Action to perform on browser agent.' },
+        approved: { type: Type.BOOLEAN, description: 'Required for authorize action: true to approve consequential step, false to abort.' }
+      },
+      required: ['action']
+    }
   }
 ];
 
@@ -734,6 +813,7 @@ const App: React.FC = () => {
   const [isAIProvidersOpen, setIsAIProvidersOpen] = useState(false);
   const [isWeatherFullOpen, setIsWeatherFullOpen] = useState(false);
   const [isTaskPanelOpen, setIsTaskPanelOpen] = useState(false);
+  const [isBrowserAgentOpen, setIsBrowserAgentOpen] = useState(false);
 
   // Boot JARVIS Continuous Runtime Engine 24/7 on system mount
   useEffect(() => {
@@ -894,6 +974,25 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('jarvis_ui_mode', uiMode);
   }, [uiMode]);
+
+  // Voice Persona Configuration (Gemini Live Voices: Charon, Fenrir, Puck, Aoede, Kore)
+  const [voicePersona, setVoicePersona] = useState<string>(() => {
+    return localStorage.getItem('jarvis_voice_persona') || 'Charon';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('jarvis_voice_persona', voicePersona);
+  }, [voicePersona]);
+
+  // Hands-free Wake Word Detection ("Hey Jarvis")
+  const [wakeWordEnabled, setWakeWordEnabled] = useState<boolean>(() => {
+    const saved = localStorage.getItem('jarvis_wakeword_enabled');
+    return saved !== null ? saved === 'true' : true;
+  });
+  const [wakeWordBanner, setWakeWordBanner] = useState<string | null>(null);
+
+  // Global Shortcuts HUD Modal State
+  const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState<boolean>(false);
 
   // OpenRouter Dual Failover Architecture State
   const [openRouterKey, setOpenRouterKey] = useState<string>(() => {
@@ -1335,6 +1434,26 @@ ${shortTermString || 'No short-term data.'}
 
     const selfKnowledgeStr = capabilityRegistry.generateSelfKnowledgePrompt();
 
+    const currentTelemetry = telemetryService.getTelemetry();
+    const isBridgeConnected = currentTelemetry.isConnectedToLocalBridge;
+    const bridgePrompt = isBridgeConnected
+      ? `NATIVE OS BRIDGE STATUS: CONNECTED (127.0.0.1:8765)
+Host: ${currentTelemetry.system.hostname.display} (${currentTelemetry.system.os.display})
+Live Hardware Telemetry:
+- CPU: ${currentTelemetry.cpu.usagePercent.display} (${currentTelemetry.cpu.cores.display}, ${currentTelemetry.cpu.frequencyMhz.display})
+- RAM: ${currentTelemetry.memory.usedPercent.display} (${currentTelemetry.memory.summary.display})
+- Disk: ${currentTelemetry.disk.usedPercent.display} (${currentTelemetry.disk.driveLabel.display} ${currentTelemetry.disk.freeSpace.display})
+- GPU: ${currentTelemetry.gpu.available ? `${currentTelemetry.gpu.name.display} (${currentTelemetry.gpu.usagePercent.display})` : 'Unsupported'}
+- Temperature: ${currentTelemetry.temperature.available ? currentTelemetry.temperature.celsius.display : 'Unsupported'}
+- Battery: ${currentTelemetry.battery.available ? `${currentTelemetry.battery.percent.display} (${currentTelemetry.battery.isCharging.display})` : 'Unavailable'}
+- Processes: ${currentTelemetry.processes.count.display}
+You have full native OS control active. When user asks about their CPU/RAM/system, give the real telemetry values above. For short queries ("CPU kitna use ho raha hai"), answer conversationally in voice/chat without opening Workspace. For comprehensive diagnostic reports ("complete diagnostic report dikhao"), provide a structured breakdown with data.`
+      : `NATIVE OS BRIDGE STATUS: DISCONNECTED (Browser Sandbox Mode).
+Native OS control and hardware sensors are UNAVAILABLE.
+If the Operator asks for real PC CPU, RAM, Disk, GPU, temperature, or native OS operations, you MUST state honestly in natural Hinglish:
+"Sir, local OS Bridge abhi connected nahi hai, isliye main aapke Windows PC ka real CPU usage access nahi kar sakta." (and mention that running 'python jarvis_bridge.py' enables local PC control).
+CRITICAL RULE: ZERO FABRICATION. NEVER invent fake percentages or random telemetry values when the bridge is disconnected.`;
+
     let instruction = JARVIS_SYSTEM_INSTRUCTION
       .replace('{{MEMORY_PLACEHOLDER}}', memoryString)
       .replace('{{IDENTITY_PLACEHOLDER}}', userIdentity || 'Identity not set.')
@@ -1342,7 +1461,7 @@ ${shortTermString || 'No short-term data.'}
       .replace('{{CONCISENESS_PROTOCOL}}', concisenessStr)
       .replace('{{TIME_PLACEHOLDER}}', currentTimeStr);
       
-    return `${instruction}\n\n${selfKnowledgeStr}`;
+    return `${instruction}\n\n${selfKnowledgeStr}\n\n${bridgePrompt}`;
   };
 
   const navigateBrowser = (url: string) => {
@@ -1357,11 +1476,100 @@ ${shortTermString || 'No short-term data.'}
   };
 
   const executeSystemTool = async (name: string, args: any) => {
-    if (!osControlRef.current && !['browse_url', 'autonomous_operations', 'system_monitoring', 'jarvis_gui_control'].includes(name)) return;
+    if (!osControlRef.current && !['browse_url', 'autonomous_operations', 'system_monitoring', 'jarvis_gui_control', 'get_weather_telemetry', 'weather_control'].includes(name)) return;
 
     addLog(`⌬ Executing Neural Command: ${name.toUpperCase()}`, 'SYSTEM', 'info');
 
     switch (name) {
+      case 'get_weather_telemetry': {
+        const queryType = args.query_type || 'all';
+        try {
+          let targetLoc: string | { lat: number; lon: number } = args.location;
+          if (!targetLoc || ['current', 'here', 'my location', 'device', 'local', 'user location', 'real place', 'mera location'].includes(String(targetLoc).toLowerCase().trim())) {
+            const detected = await openWeatherService.detectDeviceLocation();
+            targetLoc = { lat: detected.lat, lon: detected.lon };
+          }
+
+          const report = await openWeatherService.getCombinedWeatherReport(targetLoc);
+          if (report.success && report.current) {
+            const speechText = openWeatherService.generateJarvisWeatherSpeech(report, queryType);
+            addLog(`⌬ OpenWeather Telemetry: Real device observation for ${report.current.city} (${report.current.tempC}°C, ${report.current.condition})`, 'SYSTEM', 'success');
+            // Systematically sync GUI weather panel if city was explicitly requested
+            if (typeof targetLoc === 'string' && targetLoc.trim()) {
+              weatherControlService.setCity(targetLoc);
+            }
+            return {
+              success: true,
+              data: report,
+              spoken_summary: speechText
+            };
+          } else {
+            addLog(`! OpenWeather Telemetry: ${report.error || 'Weather data unavailable'}`, 'SYSTEM', 'warning');
+            return {
+              success: false,
+              error: report.error || 'Weather not available'
+            };
+          }
+        } catch (err: any) {
+          return { success: false, error: err?.message || 'Error executing weather query' };
+        }
+      }
+      case 'weather_control': {
+        const { action, city, unit, day_index, query_type } = args;
+        try {
+          if (action === 'open') {
+            setIsWeatherFullOpen(true);
+            weatherControlService.openWeather();
+            addLog('⌬ Weather Autonomy: Opened full Atmospheric Weather Workspace', 'JARVIS', 'success');
+            return { success: true, message: 'Weather workspace opened.' };
+          } else if (action === 'close') {
+            setIsWeatherFullOpen(false);
+            weatherControlService.closeWeather();
+            addLog('⌬ Weather Autonomy: Closed Weather Workspace', 'JARVIS', 'info');
+            return { success: true, message: 'Weather workspace closed.' };
+          } else if (action === 'toggle') {
+            setIsWeatherFullOpen(prev => {
+              const next = !prev;
+              if (next) weatherControlService.openWeather();
+              else weatherControlService.closeWeather();
+              return next;
+            });
+            return { success: true, message: 'Weather workspace visibility toggled.' };
+          } else if (action === 'set_city' && city) {
+            setIsWeatherFullOpen(true);
+            weatherControlService.setCity(city);
+            addLog(`⌬ Weather Autonomy: Telemetry destination updated to [${city}]`, 'JARVIS', 'success');
+            return { success: true, message: `Switched weather location to ${city}.` };
+          } else if (action === 'track_gps') {
+            setIsWeatherFullOpen(true);
+            weatherControlService.trackGPS();
+            addLog('⌬ Weather Autonomy: Tracking live GPS coordinates', 'JARVIS', 'info');
+            return { success: true, message: 'GPS coordinates engaged for live meteorological observation.' };
+          } else if (action === 'set_unit' && unit) {
+            weatherControlService.setUnit(unit as 'C' | 'F');
+            addLog(`⌬ Weather Autonomy: Temperature unit set to °${unit.toUpperCase()}`, 'JARVIS', 'info');
+            return { success: true, message: `Temperature unit changed to °${unit.toUpperCase()}.` };
+          } else if (action === 'toggle_unit') {
+            weatherControlService.toggleUnit();
+            addLog('⌬ Weather Autonomy: Toggled temperature unit (°C / °F)', 'JARVIS', 'info');
+            return { success: true, message: 'Toggled temperature unit.' };
+          } else if (action === 'select_day' && day_index !== undefined) {
+            weatherControlService.selectDay(Number(day_index));
+            addLog(`⌬ Weather Autonomy: Selected forecast card day index [${day_index}]`, 'JARVIS', 'info');
+            return { success: true, message: `Selected day forecast index ${day_index}.` };
+          } else if (action === 'refresh') {
+            weatherControlService.refresh();
+            addLog('⌬ Weather Autonomy: Telemetry refreshed', 'JARVIS', 'info');
+            return { success: true, message: 'Refreshed weather sensor telemetry.' };
+          } else if (action === 'speak_report') {
+            weatherControlService.speakWeather(query_type || 'all', day_index);
+            return { success: true, message: 'Vocalized weather report.' };
+          }
+          return { success: true, message: `Weather action ${action} processed.` };
+        } catch (err: any) {
+          return { success: false, error: err?.message || 'Error controlling weather panel' };
+        }
+      }
       case 'jarvis_gui_control': {
         const { action, theme: newTheme, panel, panel_state, hud_mode, enabled } = args;
         
@@ -1663,35 +1871,111 @@ ${shortTermString || 'No short-term data.'}
         break;
       }
 
+      case 'neural_web_search': {
+        const { query, provider } = args;
+        if (!query) break;
+        addLog(`⌬ Web Intelligence: Querying neural index for "${query}"...`, 'JARVIS', 'info');
+        try {
+          let searchResult;
+          if (provider === 'exa') {
+            searchResult = await neuralSearchEngine.searchExa(query);
+          } else if (provider === 'tavily') {
+            searchResult = await neuralSearchEngine.searchTavily(query);
+          } else {
+            searchResult = await neuralSearchEngine.unifiedSearch(query);
+          }
+
+          if (searchResult.success && searchResult.results.length > 0) {
+            const sources = searchResult.results.map(r => ({ title: r.title, uri: r.url }));
+            setNeuralSources(sources);
+            addLog(`✓ Neural Search complete (${searchResult.providerUsed.toUpperCase()} Index): ${searchResult.results.length} sources retrieved.`, 'SYSTEM', 'success');
+          } else {
+            addLog(`! Search Notice: ${searchResult.message || 'No direct results found.'}`, 'SYSTEM', 'info');
+          }
+        } catch (e: any) {
+          addLog('! Search Notice: Query could not be resolved.', 'SYSTEM', 'warning');
+        }
+        break;
+      }
+
       case 'initiate_deep_research': {
         const { topic } = args;
         addLog(`⌬ Deep Research: Initiating autonomous reasoning loop for "${topic}"...`, 'JARVIS', 'info');
-        osBridge.startResearch(topic)
-          .then(taskId => {
-            // Polling logic
-            const poll = setInterval(() => {
-              osBridge.getTaskStatus(taskId).then(status => {
-                if (status.status === 'completed') {
-                  clearInterval(poll);
-                  addLog(`⌬ Deep Research: Synthesis complete for "${topic}".`, 'JARVIS', 'success');
-                  setIntelligenceReport(status.result);
-                } else if (status.status === 'failed') {
-                  clearInterval(poll);
-                  addLog(`! Deep Research: Reasoning loop failed.`, 'SYSTEM', 'error');
-                } else {
-                  // Update progress in logs or status
-                  console.log(`Research progress: ${status.progress}%`);
-                }
-              });
-            }, 3000);
-          })
-          .catch(() => addLog('! Deep Research: Failed to initiate loop.', 'SYSTEM', 'error'));
+
+        // First attempt Tavily/Exa unified intelligence
+        neuralSearchEngine.unifiedSearch(topic, 6).then(searchRes => {
+          if (searchRes.success && searchRes.results.length > 0) {
+            const sources = searchRes.results.map(r => ({ title: r.title, uri: r.url }));
+            setNeuralSources(sources);
+            const synthesized = `### DEEP RESEARCH SYNTHESIS: ${topic.toUpperCase()}
+**Intelligence Source**: ${searchRes.providerUsed.toUpperCase()} Neural Index (${searchRes.latencyMs}ms)
+
+${searchRes.answer ? `#### Executive Summary:\n${searchRes.answer}\n\n` : ''}#### Key Findings:
+${searchRes.results.map((r, i) => `${i + 1}. **${r.title}**\n${r.snippet}\n*Source: ${r.url}*`).join('\n\n')}`;
+            setIntelligenceReport(synthesized);
+            addLog(`✓ Deep Research synthesized via ${searchRes.providerUsed.toUpperCase()} Neural Engine.`, 'JARVIS', 'success');
+          } else {
+            // Fallback to local Python bridge research runner
+            osBridge.startResearch(topic)
+              .then(taskId => {
+                const poll = setInterval(() => {
+                  osBridge.getTaskStatus(taskId).then(status => {
+                    if (status.status === 'completed') {
+                      clearInterval(poll);
+                      addLog(`⌬ Deep Research: Synthesis complete for "${topic}".`, 'JARVIS', 'success');
+                      setIntelligenceReport(status.result);
+                    } else if (status.status === 'failed') {
+                      clearInterval(poll);
+                      addLog(`! Deep Research: Reasoning loop failed.`, 'SYSTEM', 'error');
+                    }
+                  });
+                }, 3000);
+              })
+              .catch(() => addLog('! Deep Research: Failed to initiate loop.', 'SYSTEM', 'error'));
+          }
+        }).catch(() => {
+          osBridge.startResearch(topic).catch(() => {});
+        });
         return true;
       }
 
       case 'browse_url': {
         navigateBrowser(args.url);
         addLog(`⌬ Neural HUD Link: Navigated to ${args.url}. Buffer established.`, 'JARVIS', 'success');
+        return true;
+      }
+
+      case 'browser_agent_task': {
+        const { goal, target_url } = args;
+        setIsBrowserAgentOpen(true);
+        addLog(`⌬ Browser Agent: Initiating OTAV loop for goal "${goal}"...`, 'JARVIS', 'info');
+        browserAgent.executeTask(goal, target_url).then((res) => {
+          if (res.status === 'COMPLETED') {
+            addLog(`⌬ Browser Agent: Goal achieved with ${res.steps.length} steps. Results dispatched to Neural Workspace.`, 'JARVIS', 'success');
+          } else {
+            addLog(`! Browser Agent: Task ended with status ${res.status} (${res.error || 'Max steps reached'}).`, 'SYSTEM', 'warning');
+          }
+        }).catch((err) => {
+          addLog(`! Browser Agent Error: ${err?.message || 'Execution fault'}`, 'SYSTEM', 'error');
+        });
+        return true;
+      }
+
+      case 'browser_agent_control': {
+        const { action, approved } = args;
+        if (action === 'open_hud') {
+          setIsBrowserAgentOpen(true);
+          addLog('⌬ Browser Agent: HUD interface initialized.', 'JARVIS', 'info');
+        } else if (action === 'close_hud') {
+          setIsBrowserAgentOpen(false);
+          addLog('⌬ Browser Agent: HUD interface dismissed.', 'JARVIS', 'info');
+        } else if (action === 'cancel') {
+          browserAgent.cancelTask();
+          addLog('⌬ Browser Agent: Active task cancelled by operator command.', 'JARVIS', 'warning');
+        } else if (action === 'authorize') {
+          browserAgent.confirmAction(approved ?? true);
+          addLog(`⌬ Browser Agent: Operator safety decision [${approved ? 'APPROVED' : 'REJECTED'}] committed.`, 'JARVIS', 'info');
+        }
         return true;
       }
       
@@ -2557,53 +2841,108 @@ ${shortTermString || 'No short-term data.'}
   };
 
   const handleInstantScreenOCR = async () => {
-    addLog('⌬ Instant Screen OCR: Capturing screen snapshot & extracting text layers...', 'JARVIS', 'info');
+    addLog('⌬ Instant Screen OCR: Capturing screen snapshot & invoking NVIDIA Nemotron OCR v2...', 'JARVIS', 'info');
     try {
-      // Extract text content directly from visible DOM elements for ultra-fast zero-latency OCR
-      const textBlocks: string[] = [];
-      const elements = document.querySelectorAll('h1, h2, h3, h4, h5, p, span, button, input, textarea, code, pre, a, li');
-      elements.forEach((el) => {
-        const txt = (el as HTMLElement).innerText || (el as HTMLInputElement).value;
-        if (txt && txt.trim().length > 2 && txt.trim().length < 300) {
-          textBlocks.push(txt.trim());
-        }
-      });
-      const uniqueText = Array.from(new Set(textBlocks)).slice(0, 40).join('\n• ');
-
-      // Render high-res DOM snapshot
+      // 1. Render high-res DOM canvas snapshot with crisp pixel density
       const canvas = await html2canvas(document.body, {
-        scale: 0.8,
+        scale: 1.0,
         useCORS: true,
         logging: false
       });
 
-      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.95));
       let imageFile: File | undefined = undefined;
       if (blob) {
         try {
           imageFile = new File([blob], `screen_snapshot_ocr_${Date.now()}.jpg`, { type: 'image/jpeg' });
         } catch (e) {
-          console.warn("File constructor fallback:", e);
           (blob as any).name = `screen_snapshot_ocr_${Date.now()}.jpg`;
           imageFile = blob as File;
         }
       }
 
-      addLog(`⌬ Screen OCR Analysis: Extracted ${textBlocks.length} UI text nodes. Synchronized with Neural Core.`, 'JARVIS', 'success');
+      // 2. Execute Primary OCR Pipeline with NVIDIA Nemotron OCR v2
+      let ocrResultText = '';
+      let providerLabel = 'NVIDIA Nemotron OCR v2 (GPU)';
+      let confidenceScore = 1.0;
+      let latency = 0;
+      let wordCount = 0;
 
-      const promptMsg = `⚡ [INSTANT SCREEN OCR SNAPSHOT]\nOperator requested screen OCR inspection.\n\nVISIBLE TEXT ON SCREEN:\n• ${uniqueText.slice(0, 1500)}\n\nPlease summarize what is open on the screen and what the operator is working on in clear, natural Hinglish.`;
+      if (nvidiaOcrService.hasValidKey()) {
+        try {
+          const ocr = await nvidiaOcrService.extractTextFromImage(canvas, {
+            sourceType: 'screen',
+            mergeLevel: 'paragraph',
+            maxDimension: 2560
+          });
+
+          ocrResultText = ocr.text;
+          confidenceScore = ocr.confidence;
+          latency = ocr.latencyMs;
+          wordCount = ocr.metadata?.wordCount || ocr.blocks.length;
+
+          addLog(`⌬ NVIDIA Nemotron OCR v2: Extracted ${wordCount} words (${latency}ms, Confidence: ${Math.round(confidenceScore * 100)}%).`, 'JARVIS', 'success');
+        } catch (ocrErr: any) {
+          console.warn('NVIDIA Nemotron OCR v2 error:', ocrErr);
+          addLog(`! NVIDIA Nemotron OCR v2: ${ocrErr?.message || 'Extraction failed'}. Reporting status to Gemini Brain.`, 'SYSTEM', 'warning');
+          ocrResultText = `[OCR STATUS: SERVICE_ERROR - ${ocrErr?.message || 'NVIDIA API Key verification required'}]`;
+          providerLabel = 'NVIDIA OCR (UNAVAILABLE)';
+        }
+      } else {
+        // Explicitly report unconfigured OCR key rather than faking OCR
+        addLog('! NVIDIA_OCR_API_KEY is not configured in Settings. Inspecting DOM accessibility layer...', 'SYSTEM', 'warning');
+        const domResult = await nvidiaOcrService.perceiveIntelligently({
+          sourceType: 'screen',
+          domElement: document.body
+        });
+        ocrResultText = domResult.text;
+        providerLabel = 'DOM Structure Fallback (Configure NVIDIA_OCR_API_KEY for deep visual OCR)';
+        confidenceScore = 0.9;
+      }
+
+      const promptMsg = `⚡ [INSTANT SCREEN OCR ANALYSIS]\nPrimary Text Extraction Engine: ${providerLabel}\nConfidence: ${Math.round(confidenceScore * 100)}% | Words Extracted: ${wordCount || ocrResultText.split(/\s+/).length}\n\nSTRUCTURED SCREEN TEXT EXTRACTED:\n${ocrResultText.slice(0, 2500)}\n\nPlease reason over this on-screen text, diagnose any errors, open code, terminal states, or user workflows, and answer in clear, authoritative Hinglish.`;
 
       handleSendMessage(promptMsg, imageFile ? [imageFile] : undefined);
     } catch (err: any) {
-      console.warn('DOM Canvas OCR capture fallback:', err);
-      addLog(`! Instant OCR error: ${err?.message || 'Failed'}. Falling back to DOM text extractions...`, 'SYSTEM', 'warning');
+      console.warn('Screen OCR capture exception:', err);
+      addLog(`! Instant OCR error: ${err?.message || 'Failed'}.`, 'SYSTEM', 'error');
     }
   };
 
-  const handleUploadScreenImage = (file: File) => {
-    addLog(`⌬ Custom Screen Screenshot Uploaded: [${file.name}]. Analyzing visual layers...`, 'JARVIS', 'info');
-    handleSendMessage(`🖼️ [CUSTOM SCREEN IMAGE OCR]\nPlease analyze this screen snapshot image and explain what is visible on the screen in Hinglish.`, [file]);
+  const handleUploadScreenImage = async (file: File) => {
+    addLog(`⌬ Document / Visual OCR: [${file.name}]. Processing with NVIDIA Nemotron OCR v2...`, 'JARVIS', 'info');
+    let extractedOcrText = '';
+    let ocrHeader = '';
+    
+    if (nvidiaOcrService.hasValidKey()) {
+      try {
+        const ocr = await nvidiaOcrService.extractTextFromImage(file, { 
+          sourceType: 'upload', 
+          mergeLevel: 'paragraph',
+          maxDimension: 2560 
+        });
+        if (ocr.text && ocr.text.trim().length > 0) {
+          ocrHeader = `\n\nNVIDIA NEMOTRON OCR v2 EXTRACTED TEXT (${ocr.metadata?.wordCount || 0} words, Confidence: ${Math.round(ocr.confidence * 100)}%, Latency: ${ocr.latencyMs}ms):\n${ocr.text.slice(0, 3000)}`;
+          addLog(`✓ NVIDIA Nemotron OCR v2: Extracted ${ocr.metadata?.wordCount || 0} words from document (${ocr.latencyMs}ms).`, 'SYSTEM', 'success');
+        }
+      } catch (ocrErr: any) {
+        console.warn('NVIDIA Nemotron OCR v2 upload extraction error:', ocrErr);
+        ocrHeader = `\n\n[NVIDIA OCR STATUS: ${ocrErr?.message || 'Extraction failed'}]`;
+      }
+    } else {
+      addLog('! NVIDIA_OCR_API_KEY unconfigured. Please add key in Settings for GPU optical OCR.', 'SYSTEM', 'info');
+    }
+
+    handleSendMessage(`🖼️ [DOCUMENT & VISUAL PERCEPTION]\nPlease analyze this uploaded document/image and reason over the extracted text and visual layout in natural Hinglish.${ocrHeader}`, [file]);
   };
+
+  const handleToggleMic = useCallback(() => {
+    setIsMicMuted((prev) => {
+      const next = !prev;
+      addLog(`⌬ Mic Sense: ${next ? 'Sensors suspended (Muted)' : 'Sensors active (Unmuted)'}.`, 'SYSTEM', next ? 'warning' : 'success');
+      return next;
+    });
+  }, []);
 
   const stopLive = useCallback(() => {
     if (!isLive && !isConnectingRef.current) return;
@@ -2687,7 +3026,7 @@ ${shortTermString || 'No short-term data.'}
         config: {
           systemInstruction: { parts: [{ text: getSystemInstructionWithMemories() }] },
           responseModalities: [Modality.AUDIO],
-          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Charon' } } },
+          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voicePersona || 'Charon' } } },
           tools: [{ googleSearch: {} }, { functionDeclarations: toolDeclarations }],
           outputAudioTranscription: {},
           inputAudioTranscription: {},
@@ -2899,6 +3238,27 @@ ${shortTermString || 'No short-term data.'}
     }
   };
 
+  // Wake Word Detection Listener
+  useEffect(() => {
+    wakeWordService.setEnabled(wakeWordEnabled);
+    if (!wakeWordEnabled) return;
+
+    const unsubscribe = wakeWordService.subscribe((phrase) => {
+      setWakeWordBanner(`⚡ WAKE WORD DETECTED: "${phrase.toUpperCase()}" - AWAKENING NEURAL VOICE CORE`);
+      addLog(`⚡ Wake-Word Triggered: "${phrase}". Awakening J.A.R.V.I.S. neural link...`, 'JARVIS', 'success');
+      
+      if (!isLive && !isConnectingRef.current) {
+        handleStartLive();
+      }
+
+      setTimeout(() => {
+        setWakeWordBanner(null);
+      }, 4000);
+    });
+
+    return () => unsubscribe();
+  }, [wakeWordEnabled, isLive]);
+
   // Global Keyboard Shortcuts Matrix
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -2907,12 +3267,55 @@ ${shortTermString || 'No short-term data.'}
       const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
 
       if (e.key === 'Escape') {
+        if (isShortcutsModalOpen) { setIsShortcutsModalOpen(false); return; }
         if (isSettingsOpen) { setIsSettingsOpen(false); return; }
         if (isHistoryVisible) { setIsHistoryVisible(false); return; }
         if (isMemoryVisible) { setIsMemoryVisible(false); return; }
         if (isOSConsoleOpen) { setIsOSConsoleOpen(false); return; }
         if (isWeatherFullOpen) { setIsWeatherFullOpen(false); return; }
         if (neuralWorkspaceManager.getIsOpen()) { neuralWorkspaceManager.close(); return; }
+        if (isLive) { stopLive(); return; }
+      }
+
+      if (!isInput) {
+        // Spacebar to toggle Live Mode
+        if (e.code === 'Space' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          e.preventDefault();
+          playPushToTalkBeep(!isLive);
+          handleStartLive();
+          return;
+        }
+
+        // Single key shortcuts
+        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+          if (e.key === 'm' || e.key === 'M') {
+            e.preventDefault();
+            handleToggleMic();
+            return;
+          }
+          if (e.key === 'v' || e.key === 'V') {
+            e.preventDefault();
+            handleToggleOptic();
+            return;
+          }
+          if (e.key === 's' || e.key === 'S') {
+            e.preventDefault();
+            handleToggleScreenPerception();
+            return;
+          }
+          if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+            e.preventDefault();
+            setIsShortcutsModalOpen(prev => !prev);
+            return;
+          }
+        }
+      }
+
+      if ((e.altKey) && !isInput) {
+        if (e.key === 'w' || e.key === 'W') {
+          e.preventDefault();
+          setIsWeatherFullOpen(prev => !prev);
+        }
       }
 
       if ((e.ctrlKey || e.metaKey) && !isInput) {
@@ -2943,7 +3346,7 @@ ${shortTermString || 'No short-term data.'}
 
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [isSettingsOpen, isHistoryVisible, isMemoryVisible, isOSConsoleOpen, isWeatherFullOpen]);
+  }, [isSettingsOpen, isHistoryVisible, isMemoryVisible, isOSConsoleOpen, isWeatherFullOpen, isShortcutsModalOpen, isLive]);
 
   const isSlate = theme === 'slate';
   const isMinimal = theme === 'minimal';
@@ -3096,6 +3499,53 @@ ${shortTermString || 'No short-term data.'}
             </button>
 
             <button 
+              onClick={() => { 
+                playClick(); 
+                setIsWeatherFullOpen(!isWeatherFullOpen); 
+                setIsHistoryVisible(false); 
+                setIsMemoryVisible(false); 
+                setIsUpgradeVisible(false); 
+                setIsAboutJarvisOpen(false); 
+                if (!isWeatherFullOpen) addLog('⌬ Meteorological Station: Accessing full atmosphere intelligence console...', 'JARVIS', 'info');
+              }} 
+              className={`flex items-center gap-1.5 px-3 py-1.5 transition-all duration-300 border font-orbitron font-extrabold text-[9px] rounded-full backdrop-blur-xl relative ${
+                isSlate
+                  ? isWeatherFullOpen ? 'bg-zinc-700 border-zinc-400 text-zinc-100 rounded-xl shadow-sm' : 'bg-zinc-900/60 border-slate-700/80 text-slate-400 hover:text-slate-200 rounded-xl'
+                  : isWeatherFullOpen ? 'bg-cyan-500/20 border-cyan-400 text-cyan-200 shadow-[0_0_15px_rgba(0,242,255,0.4)]' : 'bg-[#030914]/80 border-cyan-500/30 text-slate-300 hover:text-cyan-300 hover:border-cyan-400/60'
+              }`}
+              title="Open Full Meteorological Weather Telemetry Console"
+            >
+              <CloudSun className="w-3.5 h-3.5 text-cyan-300 animate-pulse" />
+              <span>Weather</span>
+            </button>
+
+            <button 
+              onClick={() => { playClick(); setIsBrowserAgentOpen(!isBrowserAgentOpen); if (!isBrowserAgentOpen) addLog('⌬ Browser Agent: Initializing Autonomous Navigation HUD...', 'JARVIS', 'info'); }} 
+              className={`flex items-center gap-1.5 px-3 py-1.5 transition-all duration-300 border font-orbitron font-extrabold text-[9px] rounded-full backdrop-blur-xl relative ${
+                isSlate
+                  ? isBrowserAgentOpen ? 'bg-zinc-700 border-zinc-400 text-zinc-100 rounded-xl shadow-sm' : 'bg-zinc-900/60 border-slate-700/80 text-slate-400 hover:text-slate-200 rounded-xl'
+                  : isBrowserAgentOpen ? 'bg-cyan-500/20 border-cyan-400 text-cyan-200 shadow-[0_0_15px_rgba(0,242,255,0.4)]' : 'bg-[#030914]/80 border-cyan-500/30 text-slate-300 hover:text-cyan-300 hover:border-cyan-400/60'
+              }`}
+              title="Open Autonomous Browser Agent (Skyvern OTAV Engine)"
+            >
+              <Globe className="w-3.5 h-3.5 text-cyan-300 animate-pulse" />
+              <span>Browser Agent</span>
+            </button>
+
+            <button 
+              onClick={() => { playClick(); setIsShortcutsModalOpen(true); }} 
+              className={`flex items-center gap-1.5 px-3 py-1.5 transition-all duration-300 border font-orbitron font-extrabold text-[9px] rounded-full backdrop-blur-xl relative ${
+                isSlate
+                  ? 'bg-zinc-900/60 border-slate-700/80 text-slate-400 hover:text-slate-200 rounded-xl'
+                  : 'bg-[#030914]/80 border-cyan-500/30 text-slate-300 hover:text-cyan-300 hover:border-cyan-400/60'
+              }`}
+              title="Open Shortcuts & Hotkeys Matrix (Shift + ?)"
+            >
+              <Keyboard className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Hotkeys</span>
+            </button>
+
+            <button 
               onClick={() => { playClick(); setIsAboutJarvisOpen(!isAboutJarvisOpen); setIsHistoryVisible(false); setIsMemoryVisible(false); setIsUpgradeVisible(false); if(!isAboutJarvisOpen) addLog('⌬ JARVIS Dossier: Opening classified AI intelligence profile...', 'JARVIS', 'info'); }} 
               className={`flex items-center gap-1.5 px-3 py-1.5 transition-all duration-300 border font-orbitron font-extrabold text-[9px] rounded-full backdrop-blur-xl relative ${
                 isSlate
@@ -3114,7 +3564,12 @@ ${shortTermString || 'No short-term data.'}
             }`}>
               <Clock className="w-4 h-4 text-cyan-400" />
               <span className="text-[10px] font-mono font-bold text-slate-400 tracking-wider mr-0.5">TIME:</span>
-              <span>{time.toLocaleTimeString([], { hour12: false })}</span>
+              <span>{(() => {
+                let h = time.getHours() % 12 || 12;
+                const m = time.getMinutes().toString().padStart(2, '0');
+                const s = time.getSeconds().toString().padStart(2, '0');
+                return `${h.toString().padStart(2, '0')}:${m}:${s}`;
+              })()}</span>
             </div>
             {/* Real-Time Heartbeat ECG Waveform */}
             <div className="flex items-center gap-1 opacity-80" title="JARVIS Neural Heartbeat Pulse">
@@ -3151,22 +3606,8 @@ ${shortTermString || 'No short-term data.'}
 
         </div>
 
-        {/* Mode Selector */}
-        <div className="flex-1 max-w-xl px-4 hidden lg:flex items-center justify-center gap-2">
-          {(['CHILL', 'WORK', 'DEVELOPER', 'AUTONOMOUS'] as JarvisMode[]).map((m) => (
-            <button
-              key={m}
-              onClick={() => { setMode(m); playClick(); addLog(`⌬ Mode manually switched to ${m}_MODE`, 'SYSTEM', 'info'); }}
-              className={`px-3 py-1 rounded-full border text-[8px] font-orbitron font-extrabold tracking-widest transition-all duration-300 ${
-                isSlate
-                  ? mode === m ? 'bg-zinc-700 border-zinc-400 text-zinc-100 shadow-md' : 'bg-zinc-900/50 border-slate-800 text-slate-400 hover:border-slate-700'
-                  : mode === m ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_12px_rgba(0,242,255,0.4)]' : 'bg-[#030914]/80 border-cyan-500/20 text-slate-400 hover:border-cyan-400/50 hover:text-cyan-200'
-              }`}
-            >
-              {m}
-            </button>
-          ))}
-        </div>
+        {/* Spacer */}
+        <div className="flex-1" />
 
         <div className="flex items-center gap-3">
           {/* Theme Quick Switcher */}
@@ -3235,116 +3676,96 @@ ${shortTermString || 'No short-term data.'}
       </svg>
 
       {/* Full Screen Dedicated Workspaces Overlays */}
-      <FullScreenWorkspaceOverlay
-        isOpen={isHistoryVisible}
-        title="NEURAL_CONVERSATION_ARCHIVES"
-        subtitle="Full Transcript Logs, Multi-Session History & Fast Retrieval Matrix"
-        icon={HistoryIcon}
-        badgeText={`${sessions.length} ARCHIVES ACTIVE`}
-        badgeColor="cyan"
+      <ChatHistoryPanel 
+        isVisible={isHistoryVisible} 
+        activeSessionId={activeSessionId} 
+        sessions={sessions}
+        activeLogs={logs}
+        theme={theme}
         onClose={() => setIsHistoryVisible(false)}
-        onRefresh={() => addLog('⌬ Archives: Refreshing neural transcript caches...', 'SYSTEM', 'info')}
-        theme={theme}
-      >
-        <ChatHistoryPanel 
-          isVisible={true} 
-          activeSessionId={activeSessionId} 
-          sessions={sessions}
-          activeLogs={logs}
-          theme={theme}
-          onClose={() => setIsHistoryVisible(false)}
-          onSelectSession={(id) => {
-            setActiveSessionId(id);
-            const session = sessions.find(s => s.session_id === id);
-            if (session) {
-              if (session.logs && session.logs.length > 0) {
-                setLogs(session.logs);
-              }
-              addLog(`⌬ Archives: Switched to session [${session.title}].`, 'SYSTEM', 'info');
+        onSelectSession={(id) => {
+          setActiveSessionId(id);
+          const session = sessions.find(s => s.session_id === id);
+          if (session) {
+            if (session.logs && session.logs.length > 0) {
+              setLogs(session.logs);
             }
-          }} 
-          onNewChat={() => {
-            const newId = `s_${Math.random().toString(36).substr(2, 9)}`;
-            const newSession: ChatSession = {
-              session_id: newId,
-              title: `Neural Session #${sessions.length + 1}`,
-              timestamp_created: Date.now(),
-              timestamp_last_message: Date.now(),
-              last_message_preview: "Neural session initialized.",
-              mode: mode,
-              model: 'gemini-3.6-flash',
-              messageCount: 0,
-              memorySaved: false,
-              logs: []
-            };
-            setSessions(prev => [newSession, ...prev]);
-            setActiveSessionId(newId);
-            setLogs([
-              { id: '1', source: 'SYSTEM', message: `● Session [${newSession.title}] active in Fast Efficiency Mode.`, timestamp: Date.now(), type: 'success' }
-            ]);
-            handleNewChat();
-          }} 
-          onTogglePin={(id) => {
-            setSessions(prev => prev.map(s => s.session_id === id ? { ...s, isPinned: !s.isPinned } : s));
-          }}
-          onToggleFavorite={(id) => {
-            setSessions(prev => prev.map(s => s.session_id === id ? { ...s, isFavorite: !s.isFavorite } : s));
-          }}
-          onDeleteSession={(id) => {
-            if (sessions.length <= 1) return;
-            setSessions(prev => prev.filter(s => s.session_id !== id));
-            if (activeSessionId === id) {
-              const remaining = sessions.filter(s => s.session_id !== id);
-              if (remaining.length > 0) {
-                setActiveSessionId(remaining[0].session_id);
-                if (remaining[0].logs) setLogs(remaining[0].logs);
-              }
+            addLog(`⌬ Archives: Switched to session [${session.title}].`, 'SYSTEM', 'info');
+          }
+        }} 
+        onNewChat={() => {
+          const newId = `s_${Math.random().toString(36).substr(2, 9)}`;
+          const newSession: ChatSession = {
+            session_id: newId,
+            title: `Neural Session #${sessions.length + 1}`,
+            timestamp_created: Date.now(),
+            timestamp_last_message: Date.now(),
+            last_message_preview: "Neural session initialized.",
+            mode: mode,
+            model: 'gemini-3.6-flash',
+            messageCount: 0,
+            memorySaved: false,
+            logs: []
+          };
+          setSessions(prev => [newSession, ...prev]);
+          setActiveSessionId(newId);
+          setLogs([
+            { id: '1', source: 'SYSTEM', message: `● Session [${newSession.title}] active in Fast Efficiency Mode.`, timestamp: Date.now(), type: 'success' }
+          ]);
+          handleNewChat();
+        }} 
+        onTogglePin={(id) => {
+          setSessions(prev => prev.map(s => s.session_id === id ? { ...s, isPinned: !s.isPinned } : s));
+        }}
+        onToggleFavorite={(id) => {
+          setSessions(prev => prev.map(s => s.session_id === id ? { ...s, isFavorite: !s.isFavorite } : s));
+        }}
+        onDeleteSession={(id) => {
+          if (sessions.length <= 1) return;
+          setSessions(prev => prev.filter(s => s.session_id !== id));
+          if (activeSessionId === id) {
+            const remaining = sessions.filter(s => s.session_id !== id);
+            if (remaining.length > 0) {
+              setActiveSessionId(remaining[0].session_id);
+              if (remaining[0].logs) setLogs(remaining[0].logs);
             }
-          }}
-        />
-      </FullScreenWorkspaceOverlay>
+          }
+        }}
+      />
 
-      <FullScreenWorkspaceOverlay
+      <MemoryPanel 
         isOpen={isMemoryVisible}
-        title="NEURAL_MEMORY_CLUSTER"
-        subtitle="Quantum Memory Anchors, Personality System Directives & Operator Identity Profile"
-        icon={BrainCircuit}
-        badgeText={`${memories.length} ANCHORS ACTIVE`}
-        badgeColor="purple"
         onClose={() => setIsMemoryVisible(false)}
-        onRefresh={() => addLog('⌬ Memory Cluster: Re-indexing memory graph...', 'JARVIS', 'info')}
-        theme={theme}
-      >
-        <MemoryPanel 
-          memories={memories} 
-          personality={personality} 
-          userIdentity={userIdentity} 
-          onAddMemory={(c, cat, type) => setMemories(p => [{ id: Math.random().toString(), content: c, category: cat, timestamp: Date.now(), type: type || 'long_term' }, ...p])} 
-          onDeleteMemory={(id) => setMemories(p => p.filter(m => m.id !== id))} 
-          onUpdatePersonality={setPersonality} 
-          onUpdateIdentity={setUserIdentity} 
-          theme={theme} 
-        />
-      </FullScreenWorkspaceOverlay>
+        memories={memories} 
+        personality={personality} 
+        userIdentity={userIdentity} 
+        onAddMemory={(c, cat, type) => setMemories(p => [{ id: Math.random().toString(), content: c, category: cat, timestamp: Date.now(), type: type || 'long_term' }, ...p])} 
+        onDeleteMemory={(id) => setMemories(p => p.filter(m => m.id !== id))} 
+        onUpdatePersonality={setPersonality} 
+        onUpdateIdentity={setUserIdentity} 
+        theme={theme} 
+      />
 
-      <FullScreenWorkspaceOverlay
+      <UpgradePanel 
         isOpen={isUpgradeVisible}
-        title="NEURAL_SYSTEM_UPGRADES"
-        subtitle="Dynamic Capability Requests, Hardware Optimization & Feature Patch Log"
-        icon={Sparkles}
-        badgeText={`${upgradeRequests.length} UPGRADES PENDING`}
-        badgeColor="amber"
         onClose={() => setIsUpgradeVisible(false)}
-        onRefresh={() => addLog('⌬ Upgrade Core: Scanning system for feature requests...', 'SYSTEM', 'info')}
-        theme={theme}
-      >
-        <UpgradePanel 
-          requests={upgradeRequests} 
-          onClear={() => setUpgradeRequests([])} 
-          onRemove={(id) => setUpgradeRequests(prev => prev.filter(r => r.id !== id))} 
-          theme={theme} 
-        />
-      </FullScreenWorkspaceOverlay>
+        requests={upgradeRequests} 
+        onClear={() => setUpgradeRequests([])} 
+        onRemove={(id) => setUpgradeRequests(prev => prev.filter(r => r.id !== id))} 
+        onAddRequest={(task, reason, priority, suggestedModule) => {
+          const newReq: UpgradeRequest = {
+            id: `upg_${Date.now()}`,
+            task,
+            reason,
+            priority,
+            suggested_module: suggestedModule,
+            timestamp: Date.now()
+          };
+          setUpgradeRequests(prev => [newReq, ...prev]);
+          addLog(`⌬ System Upgrade: Queued enhancement directive "${task}".`, 'JARVIS', 'info');
+        }}
+        theme={theme} 
+      />
 
       {/* ================= DEVELOPER WORKSPACE CENTER ================= */}
       <div className="flex-1 flex overflow-hidden p-4 pb-2 gap-4 relative z-20">
@@ -3353,7 +3774,12 @@ ${shortTermString || 'No short-term data.'}
         <div className="w-[30%] min-w-[280px] max-w-[380px] flex flex-col h-full bg-[rgba(2,12,27,0.35)] border border-cyan-500/20 backdrop-blur-md rounded-2xl p-3.5 shadow-[0_0_25px_rgba(0,242,255,0.08)] overflow-hidden z-20">
           {isBrowserActive ? (
             <div className="h-full w-full flex flex-col relative bg-[#111] rounded-xl overflow-hidden">
-              <iframe src={browserUrl} className="flex-1 w-full h-full border-none opacity-90" title="JARVIS HUD BROWSER" />
+              <iframe 
+                ref={(el) => browserAgent.getController().setIframeElement(el)}
+                src={browserUrl} 
+                className="flex-1 w-full h-full border-none opacity-90" 
+                title="JARVIS HUD BROWSER" 
+              />
               <div className="absolute top-2 right-4 z-20 flex gap-2">
                 <button onClick={() => setIsBrowserActive(false)} className="bg-[#030914] p-2 rounded-full text-white hover:text-cyan-400 border border-cyan-500/30 shadow-lg"><X className="w-4 h-4" /></button>
               </div>
@@ -3479,6 +3905,11 @@ ${shortTermString || 'No short-term data.'}
             isOpenFullModal={isWeatherFullOpen}
             onToggleFullModal={setIsWeatherFullOpen}
             onAskJarvisWeather={handleSendMessage}
+            status={status}
+            isLive={isLive}
+            micLevel={micLevel}
+            onSendMessage={handleSendMessage}
+            handleStartLive={handleStartLive}
           />
 
           {/* System Health & Active Modules */}
@@ -3681,6 +4112,10 @@ ${shortTermString || 'No short-term data.'}
         setTheme={setTheme}
         fontStyle={fontStyle}
         setFontStyle={setFontStyle}
+        voicePersona={voicePersona}
+        setVoicePersona={setVoicePersona}
+        wakeWordEnabled={wakeWordEnabled}
+        setWakeWordEnabled={setWakeWordEnabled}
         onClearLogs={clearNeuralLogs}
         openRouterKey={openRouterKey}
         setOpenRouterKey={setOpenRouterKey}
@@ -3691,7 +4126,25 @@ ${shortTermString || 'No short-term data.'}
         onOpenWorkflowPanel={() => setIsWorkflowOpen(true)}
         onOpenAIProviders={() => setIsAIProvidersOpen(true)}
         onOpenTaskPanel={() => setIsTaskPanelOpen(true)}
+        onOpenShortcutsModal={() => setIsShortcutsModalOpen(true)}
       />
+
+      {/* GLOBAL KEYBOARD SHORTCUTS HUD MODAL */}
+      <KeyboardShortcutsModal
+        isOpen={isShortcutsModalOpen}
+        onClose={() => setIsShortcutsModalOpen(false)}
+        theme={theme}
+      />
+
+      {/* WAKE-WORD DETECTION NOTIFICATION BANNER */}
+      {wakeWordBanner && (
+        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-top-4 duration-300 pointer-events-none">
+          <div className="flex items-center gap-3 px-5 py-2.5 rounded-full bg-[#031526]/95 border-2 border-cyan-400 text-cyan-200 font-orbitron text-xs font-black shadow-[0_0_30px_rgba(0,242,255,0.8)] backdrop-blur-2xl">
+            <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping shadow-[0_0_10px_#00f2ff]" />
+            <span className="tracking-wider drop-shadow-[0_0_8px_#00f2ff]">{wakeWordBanner}</span>
+          </div>
+        </div>
+      )}
 
       <TaskPanel
         isOpen={isTaskPanelOpen}
@@ -3718,6 +4171,14 @@ ${shortTermString || 'No short-term data.'}
       <AboutJarvisModule 
         isOpen={isAboutJarvisOpen} 
         onClose={() => setIsAboutJarvisOpen(false)} 
+        theme={theme}
+      />
+
+      {/* AUTONOMOUS BROWSER AGENT HUD MODAL (SKYVERN-INSPIRED OTAV ENGINE) */}
+      <BrowserAgentHUD
+        isOpen={isBrowserAgentOpen}
+        onClose={() => setIsBrowserAgentOpen(false)}
+        onOpenWorkspace={() => neuralWorkspaceManager.open()}
         theme={theme}
       />
 

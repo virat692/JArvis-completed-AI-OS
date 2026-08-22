@@ -284,6 +284,30 @@ export const JARVIS_CAPABILITY_REGISTRY: JarvisCapabilityRegistryData = {
       restrictedOrUnavailableActions: ['Accessing camera when user has denied browser media permissions']
     },
     {
+      id: 'cap_nvidia_ocr_perception',
+      name: 'NVIDIA Nemotron OCR v2 Primary Vision & Text Extraction Engine',
+      category: 'VISION',
+      status: 'FUNCTIONAL',
+      executionTier: 'PERCEPTION',
+      description: 'Primary OCR & Text Extraction engine powered by NVIDIA Nemotron OCR v2 NIM microservice. Extracts high-fidelity structured text, layout, bounding boxes, code, stack traces, and tables from screen snapshots, IDE windows, terminal outputs, camera frames, and uploaded documents, passing normalized context to Gemini Reasoning.',
+      implementation: {
+        moduleName: 'NvidiaOcrService & Nemotron OCR Pipeline',
+        sourceFile: '/services/nvidiaOcrService.ts',
+        entryClassOrFunction: 'nvidiaOcrService.extractTextFromImage() & perceiveIntelligently()',
+        executionMode: 'CLOUD_API'
+      },
+      allowedActions: [
+        'Extract structured text and bounding boxes from live screen captures',
+        'Extract IDE code, stack traces, terminal commands without altering symbols',
+        'Extract text from uploaded documents, receipts, forms, tables, and images',
+        'Execute intelligent frame caching and change detection to avoid duplicate API calls',
+        'Normalize OCR results with confidence metrics, bounding boxes, and layout metadata'
+      ],
+      restrictedOrUnavailableActions: [
+        'Running GPU OCR without configured NVIDIA_OCR_API_KEY (explicitly reported in telemetry)'
+      ]
+    },
+    {
       id: 'cap_screen_perception',
       name: 'Screen Perception & OCR Vision',
       category: 'VISION',
@@ -354,6 +378,31 @@ export const JARVIS_CAPABILITY_REGISTRY: JarvisCapabilityRegistryData = {
       },
       allowedActions: ['Perform deep code reviews', 'Generate structured architecture plans', 'Execute bounded iterative debugging (max 3 cycles)'],
       restrictedOrUnavailableActions: ['Acting as an independent autonomous chatbot or replacing JARVIS as the primary conversational agent']
+    },
+    {
+      id: 'cap_autonomous_browser_agent',
+      name: 'Autonomous Browser Agent (Skyvern-Inspired OTAV Engine)',
+      category: 'AUTOMATION',
+      status: 'FUNCTIONAL',
+      executionTier: 'SUBSYSTEM',
+      description: 'Goal-driven autonomous browser automation agent implementing the Observe-Think-Act-Verify (OTAV) control loop. Features layered DOM parsing, semantic interactive element mapping, dual-mode execution (native Playwright bridge & sandbox HUD engine), self-healing recovery, consequential action safety guardrails, and direct structured intelligence dispatch to Neural Workspace.',
+      implementation: {
+        moduleName: 'BrowserAgent Subsystem',
+        sourceFile: '/services/browserAgent/browserAgent.ts',
+        entryClassOrFunction: 'browserAgent.executeTask() & BrowserController',
+        executionMode: 'HYBRID_SIMULATED'
+      },
+      allowedActions: [
+        'Execute multi-step goal-directed browser tasks from natural language prompts',
+        'Observe DOM hierarchy, extract interactive targets with semantic selectors',
+        'Execute navigation, clicks, typing, keyboard shortcuts, scrolling, and overlay dismissals',
+        'Verify post-action state changes and perform bounded self-healing recovery',
+        'Enforce operator confirmation for sensitive operations (purchases, deletions, credentials)',
+        'Synthesize structured comparison cards, data tables, and reports directly into Neural Workspace'
+      ],
+      restrictedOrUnavailableActions: [
+        'Bypassing operator confirmation on critical financial or irreversible actions'
+      ]
     },
     {
       id: 'cap_autonomous_workflows',

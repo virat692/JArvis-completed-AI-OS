@@ -8,10 +8,7 @@ import {
 
 import { GeminiProvider } from '../providers/GeminiProvider';
 import { NemotronProvider } from '../providers/NemotronProvider';
-import { OpenAIProvider } from '../providers/OpenAIProvider';
-import { ClaudeProvider } from '../providers/ClaudeProvider';
-import { DeepSeekProvider } from '../providers/DeepSeekProvider';
-import { LocalProvider } from '../providers/LocalProvider';
+import { OpenRouterProvider } from '../providers/OpenRouterProvider';
 import providerConfig from '../config/providers.json';
 import { eventBus } from './eventBus';
 
@@ -22,8 +19,7 @@ export type TaskCategory =
   | 'debugging' 
   | 'vision' 
   | 'research' 
-  | 'translation' 
-  | 'localOffline';
+  | 'translation';
 
 export interface ProviderMetrics {
   requestsCompleted: number;
@@ -49,17 +45,11 @@ export class AIProviderManager {
   private registerProviders() {
     const pGemini = new GeminiProvider();
     const pNemotron = new NemotronProvider();
-    const pOpenAI = new OpenAIProvider();
-    const pClaude = new ClaudeProvider();
-    const pDeepSeek = new DeepSeekProvider();
-    const pLocal = new LocalProvider();
+    const pOpenRouter = new OpenRouterProvider();
 
     this.providers.set(pGemini.id, pGemini);
     this.providers.set(pNemotron.id, pNemotron);
-    this.providers.set(pOpenAI.id, pOpenAI);
-    this.providers.set(pClaude.id, pClaude);
-    this.providers.set(pDeepSeek.id, pDeepSeek);
-    this.providers.set(pLocal.id, pLocal);
+    this.providers.set(pOpenRouter.id, pOpenRouter);
 
     this.providers.forEach((_, id) => {
       this.metrics.set(id, {
@@ -131,15 +121,28 @@ export class AIProviderManager {
   }
 
   /**
-   * Intelligently classifies user prompt into a task category.
-   * Complex reasoning, architecture, coding, math, debugging -> routed to Nemotron Ultra
+   * Classifies user prompt into a task category.
+   * Deep reasoning / complex architecture -> complexReasoning (delegated to Nemotron when configured)
+   * Coding / General / Vision -> Gemini
    */
   public detectTaskCategory(prompt: string, hasFiles: boolean = false): TaskCategory {
     if (hasFiles) return 'vision';
     
     const lower = prompt.toLowerCase();
     
-    // Explicit keywords for deep coding & debugging
+    // Explicit keywords for deep complex reasoning & architecture
+    if (
+      lower.includes('deep reasoning') ||
+      lower.includes('system architecture') ||
+      lower.includes('math proof') ||
+      lower.includes('nemotron') ||
+      lower.includes('multi-step plan') ||
+      lower.includes('distributed consensus') ||
+      lower.includes('formal verification')
+    ) {
+      return 'complexReasoning';
+    }
+
     if (
       lower.includes('write code') ||
       lower.includes('function') ||
@@ -149,37 +152,15 @@ export class AIProviderManager {
       lower.includes('refactor') ||
       lower.includes('debug') ||
       lower.includes('syntax') ||
-      lower.includes('algorithm') ||
-      lower.includes('regex') ||
-      lower.includes('api endpoint') ||
-      lower.includes('class ') ||
-      lower.includes('implement')
+      lower.includes('algorithm')
     ) {
       return 'coding';
-    }
-
-    // Explicit keywords for deep complex reasoning & architecture
-    if (
-      lower.includes('architecture') ||
-      lower.includes('reasoning') ||
-      lower.includes('system design') ||
-      lower.includes('math proof') ||
-      lower.includes('calculate step by step') ||
-      lower.includes('deep analysis') ||
-      lower.includes('nemotron') ||
-      lower.includes('logic puzzle') ||
-      lower.includes('multi-step plan') ||
-      lower.includes('distributed system') ||
-      lower.includes('database schema design')
-    ) {
-      return 'complexReasoning';
     }
 
     if (
       lower.includes('research') ||
       lower.includes('comprehensive review') ||
-      lower.includes('literature') ||
-      lower.includes('compare papers')
+      lower.includes('literature review')
     ) {
       return 'research';
     }
@@ -192,15 +173,16 @@ export class AIProviderManager {
   }
 
   /**
-   * Intelligently routes tasks to the best provider based on category.
-   * e.g., complexReasoning / coding -> Nemotron Ultra
+   * Intelligently routes tasks to the appropriate provider:
+   * - Deep reasoning -> Nemotron (if ONLINE/DEGRADED), else fallback to Gemini
+   * - General / Coding / Vision -> Gemini
    */
   public getProviderForTask(task: TaskCategory): AIProvider {
-    const routedId = (providerConfig.taskRouting as any)[task];
-    if (routedId && this.providers.has(routedId)) {
-      const health = this.healthStatuses.get(routedId);
-      if (health?.status === 'ONLINE' || health?.status === 'DEGRADED') {
-        return this.providers.get(routedId)!;
+    if (task === 'complexReasoning') {
+      const nemotron = this.providers.get('nemotron');
+      const health = this.healthStatuses.get('nemotron');
+      if (nemotron && (health?.status === 'ONLINE' || health?.status === 'DEGRADED')) {
+        return nemotron;
       }
     }
     return this.getActiveProvider();
@@ -229,7 +211,8 @@ export class AIProviderManager {
   }
 
   /**
-   * Generates response with automatic retries and fallback handling
+   * Generates response with automatic retries and fallback handling.
+   * Primary (Gemini) -> OpenRouter Failover -> Nemotron
    */
   public async generateWithFallback(
     prompt: string, 
@@ -253,8 +236,8 @@ export class AIProviderManager {
       }
     }
 
-    // Ultimate fallback if all fail
-    const fallbackProvider = this.getActiveProvider();
+    // Ultimate fallback to Gemini core
+    const fallbackProvider = this.providers.get('gemini') || this.getActiveProvider();
     const fallbackRes = await fallbackProvider.generate(prompt, options);
     this.recordUsage(fallbackProvider.id, fallbackRes.latencyMs, fallbackRes.usage.totalTokens);
     return fallbackRes;
@@ -275,7 +258,7 @@ export class AIProviderManager {
       this.recordUsage(provider.id, response.latencyMs, response.usage.totalTokens);
       return response;
     } catch (err) {
-      // Fallback
+      // Automatic failover to OpenRouter or Gemini
       return this.generateWithFallback(prompt, 'gemini', options);
     }
   }

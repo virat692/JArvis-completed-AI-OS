@@ -299,67 +299,64 @@ if __name__ == "__main__":
       {/* Top Glowing Accent Line */}
       <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent pointer-events-none z-30 shadow-[0_0_12px_#00f2ff]" />
 
-      {/* Header */}
-      <div className={`px-6 py-3.5 border-b flex items-center justify-between shrink-0 z-20 backdrop-blur-md ${
-        isSlate ? 'border-slate-800 bg-zinc-900/90' : isMinimal ? 'border-emerald-500/20 bg-emerald-950/30' : isGold ? 'border-amber-500/20 bg-amber-950/30' : 'border-cyan-500/25 bg-black/80'
-      }`}>
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-xl border ${
-              isSlate ? 'bg-zinc-800 border-slate-700 text-zinc-200' : isMinimal ? 'bg-emerald-950 border-emerald-500/40 text-emerald-400' : isGold ? 'bg-amber-950 border-amber-500/40 text-amber-400' : 'bg-cyan-950 border-cyan-500/40 text-cyan-400 shadow-[0_0_15px_rgba(0,242,255,0.3)]'
-            }`}>
-              <Laptop className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className={`font-orbitron font-extrabold text-sm tracking-[0.2em] uppercase ${
-                  isSlate ? 'text-zinc-100' : isMinimal ? 'text-emerald-300' : isGold ? 'text-amber-300' : 'text-cyan-400'
-                }`}>JARVIS OS MASTER CONTROL</h1>
-                <span className={`text-[9px] font-mono px-2 py-0.5 rounded-full border flex items-center gap-1.5 ${
-                  bridgeConnected 
-                    ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300' 
-                    : 'bg-cyan-950/80 border-cyan-500/30 text-cyan-300'
-                }`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${bridgeConnected ? 'bg-emerald-400 animate-ping' : 'bg-cyan-400'}`} />
-                  {bridgeConnected ? 'LOCAL DEVICE BRIDGE CONNECTED (:8000)' : 'BROWSER MODE (HARDWARE TELEMETRY UNAVAILABLE)'}
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-                {bridgeConnected ? 'Direct Host Hardware, Memory, Process & Native Execution Link' : 'Web Sandbox Runtime — Native Host Access Requires Local Python Daemon'}
-              </p>
-            </div>
+      {/* 1. TOP STATUS & NAVIGATION HUD (EXACT TASK PANEL TOP BAR STANDARD) */}
+      <header className="px-6 py-3 border-b border-cyan-500/30 bg-[#031024]/90 backdrop-blur-2xl flex items-center justify-between shrink-0 z-20 shadow-[0_4px_30px_rgba(0,242,255,0.08)]">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-cyan-950/90 border border-cyan-400/80 flex items-center justify-center shadow-[0_0_20px_rgba(0,242,255,0.4)] shrink-0">
+            <Laptop className="w-5 h-5 text-cyan-300 animate-pulse" />
           </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={checkBridge}
-              disabled={isRefreshingBridge}
-              className={`p-2 rounded-lg border text-xs font-mono flex items-center gap-1.5 transition-all ${
-                isSlate ? 'bg-zinc-800 hover:bg-zinc-700 border-slate-700' : 'bg-white/5 hover:bg-white/10 border-white/10'
-              }`}
-              title="Ping OS Bridge Server"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingBridge ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">Ping Bridge</span>
-            </button>
-
-            {/* Quick Emergency Lock */}
-            <button
-              onClick={() => handleExecuteOS({ action: 'power_control', params: { cmd: 'lock' } }, 'Quick Lock PC')}
-              className="px-3 py-1.5 rounded-lg bg-red-950/60 border border-red-500/40 text-red-400 hover:bg-red-900/60 text-xs font-mono font-bold flex items-center gap-1.5 transition-all shadow-sm"
-              title="Lock Machine (Requires Local Bridge)"
-            >
-              <Lock className="w-3.5 h-3.5" />
-              <span>LOCK OS</span>
-            </button>
-
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
+          <div>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h1 className="font-orbitron font-extrabold text-base tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-200 via-white to-cyan-400">
+                JARVIS OS MASTER CONTROL
+              </h1>
+              <span className="text-[9px] font-mono font-black text-cyan-400 bg-cyan-950/90 border border-cyan-500/50 px-2.5 py-0.5 rounded-full uppercase tracking-widest flex items-center gap-1.5 shadow-[0_0_10px_rgba(0,242,255,0.25)]">
+                <span className={`w-1.5 h-1.5 rounded-full ${bridgeConnected ? 'bg-emerald-400 animate-ping' : 'bg-cyan-400 animate-ping'}`} />
+                {bridgeConnected ? 'HOST BRIDGE CONNECTED (:8000)' : 'BROWSER SANDBOX ACTIVE'}
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-400 font-mono flex items-center gap-2 mt-0.5">
+              <span>OS Controller Matrix</span>
+              <span>•</span>
+              <span>Hardware Telemetry</span>
+              <span>•</span>
+              <span className="text-cyan-400">{bridgeConnected ? 'Direct Host Hardware Link' : 'Web Sandbox Runtime'}</span>
+            </p>
           </div>
         </div>
+
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={checkBridge}
+            disabled={isRefreshingBridge}
+            className="flex items-center gap-2 px-4 py-2 rounded-full font-orbitron font-black text-xs uppercase tracking-wider bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-600 text-black border border-cyan-200 shadow-[0_0_20px_rgba(0,242,255,0.6)] hover:scale-105 active:scale-95 transition-all cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingBridge ? 'animate-spin font-black' : ''}`} />
+            <span>PING BRIDGE</span>
+          </button>
+
+          {/* Quick Emergency Lock */}
+          <button
+            type="button"
+            onClick={() => handleExecuteOS({ action: 'power_control', params: { cmd: 'lock' } }, 'Quick Lock PC')}
+            className="p-2 rounded-xl text-slate-400 hover:text-red-400 hover:bg-red-950/20 border border-cyan-500/20 transition-all cursor-pointer hidden sm:flex items-center gap-1"
+            title="Lock Machine (Requires Local Bridge)"
+          >
+            <Lock className="w-4 h-4 text-red-400" />
+            <span className="text-xs font-mono font-bold text-red-300">LOCK</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-950/20 border border-transparent hover:border-rose-500/30 transition-all cursor-pointer"
+            title="Close OS Control (ESC)"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      </header>
 
         {/* Tab Navigation */}
         <div className={`px-6 py-2 border-b flex items-center gap-2 overflow-x-auto shrink-0 ${

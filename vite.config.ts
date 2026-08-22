@@ -11,8 +11,14 @@ export default defineConfig(({ mode }) => {
       },
       plugins: [react()],
       define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.API_KEY || ''),
+        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.API_KEY || ''),
+        'process.env.OPENWEATHER_API_KEY': JSON.stringify(env.OPENWEATHER_API_KEY || env.VITE_OPENWEATHER_API_KEY || ''),
+        'process.env.VITE_OPENWEATHER_API_KEY': JSON.stringify(env.VITE_OPENWEATHER_API_KEY || env.OPENWEATHER_API_KEY || ''),
+        'process.env.TAVILY_API_KEY': JSON.stringify(env.TAVILY_API_KEY || env.VITE_TAVILY_API_KEY || ''),
+        'process.env.EXA_API_KEY': JSON.stringify(env.EXA_API_KEY || env.VITE_EXA_API_KEY || ''),
+        'process.env.NEMOTRON_API_KEY': JSON.stringify(env.NEMOTRON_API_KEY || env.VITE_NEMOTRON_API_KEY || ''),
+        'process.env.OPENROUTER_API_KEY': JSON.stringify(env.OPENROUTER_API_KEY || env.VITE_OPENROUTER_API_KEY || ''),
       },
       resolve: {
         alias: {

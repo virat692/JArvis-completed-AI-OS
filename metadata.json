@@ -1,10 +1,11 @@
 {
   "name": "JARVIS AI OS",
-  "description": "A high-level cognitive AI assistant inspired by JARVIS, featuring multimodal vision, real-time voice, and persistent memory.",
+  "description": "A high-level cognitive AI assistant inspired by JARVIS, featuring autonomous browser automation, NVIDIA OCR v2 vision perception, real-time voice, and persistent memory.",
   "requestFramePermissions": [
     "camera",
     "microphone",
-    "display-capture"
+    "display-capture",
+    "geolocation"
   ],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

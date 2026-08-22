@@ -1,20 +1,16 @@
 import { useState, useSyncExternalStore, useEffect } from 'react';
 import { 
   Cpu, 
-  Activity, 
-  Zap, 
   CheckCircle2, 
   XCircle, 
   RefreshCw, 
   Radio, 
   Sparkles, 
   Layers, 
-  ShieldAlert, 
-  Bot, 
   Flame, 
   Compass, 
-  Clock, 
-  Terminal 
+  Terminal,
+  Zap
 } from 'lucide-react';
 import { aiProviderManager, TaskCategory } from '../services/AIProviderManager';
 import { playWhooshSound, playDigitalPingSound } from '../services/soundEffects';
@@ -90,44 +86,58 @@ export const AIProvidersModal = ({ isOpen, onClose }: AIProvidersModalProps) => 
       <div className="bg-slate-950 border border-cyan-500/40 w-full max-w-6xl h-[92vh] rounded-3xl flex flex-col overflow-hidden shadow-[0_0_80px_rgba(6,182,212,0.2)] relative">
         <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-amber-500 via-cyan-400 to-purple-600 animate-pulse" />
 
-        {/* Header */}
-        <div className="p-6 border-b border-white/10 flex flex-wrap items-center justify-between gap-4 shrink-0 bg-slate-900/60">
+        {/* 1. TOP STATUS & NAVIGATION HUD (EXACT TASK PANEL TOP BAR STANDARD) */}
+        <header className="px-6 py-3 border-b border-cyan-500/30 bg-[#031024]/90 backdrop-blur-2xl flex items-center justify-between shrink-0 shadow-[0_4px_30px_rgba(0,242,255,0.08)]">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-2xl bg-cyan-500/10 border border-cyan-400/30 text-cyan-400">
-              <Cpu className="w-6 h-6 animate-pulse" />
+            <div className="w-10 h-10 rounded-2xl bg-cyan-950/90 border border-cyan-400/80 flex items-center justify-center shadow-[0_0_20px_rgba(0,242,255,0.4)] shrink-0">
+              <Cpu className="w-5 h-5 text-cyan-300 animate-pulse" />
             </div>
             <div>
-              <h2 className="text-base font-orbitron font-extrabold text-cyan-300 uppercase tracking-wider flex items-center gap-2">
-                MULTI-LLM PROVIDER ARCHITECTURE & NEMOTRON ULTRA ENGINE <span className="text-[10px] font-mono bg-cyan-500/20 text-cyan-300 px-2.5 py-0.5 rounded-full border border-cyan-400/30">SYSTEM CONSOLE V8</span>
-              </h2>
-              <p className="text-xs text-slate-400 font-sans">
-                Unified provider manager with NVIDIA Nemotron Ultra, Gemini, OpenAI, Claude, DeepSeek & Local LLM.
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h1 className="font-orbitron font-extrabold text-base tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-200 via-white to-cyan-400">
+                  AI PROVIDERS & INFERENCE MESH
+                </h1>
+                <span className="text-[9px] font-mono font-black text-cyan-400 bg-cyan-950/90 border border-cyan-500/50 px-2.5 py-0.5 rounded-full uppercase tracking-widest flex items-center gap-1.5 shadow-[0_0_10px_rgba(0,242,255,0.25)]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                  REASONING ENGINE ONLINE
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 font-mono flex items-center gap-2 mt-0.5">
+                <span>Core Models</span>
+                <span>•</span>
+                <span>Auto-Failover Synced</span>
+                <span>•</span>
+                <span className="text-cyan-400">Multi-Model Routing Active</span>
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <button
+              type="button"
               onClick={handleRefreshHealth}
               disabled={isRefreshing}
-              className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-xs font-mono flex items-center gap-2 transition-all cursor-pointer"
+              className="flex items-center gap-2 px-4 py-2 rounded-full font-orbitron font-black text-xs uppercase tracking-wider bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-600 text-black border border-cyan-200 shadow-[0_0_20px_rgba(0,242,255,0.6)] hover:scale-105 active:scale-95 transition-all cursor-pointer"
             >
-              <RefreshCw className={`w-3.5 h-3.5 text-cyan-400 ${isRefreshing ? 'animate-spin' : ''}`} />
-              {isRefreshing ? 'Pinging...' : 'Ping Providers'}
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin font-black' : ''}`} />
+              <span>{isRefreshing ? 'PINGING...' : 'PING PROVIDERS'}</span>
             </button>
+
             <button
+              type="button"
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 hover:text-white flex items-center justify-center text-sm transition-all"
+              className="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-950/20 border border-transparent hover:border-rose-500/30 transition-all cursor-pointer"
+              title="Close AI Providers (ESC)"
             >
               ✕
             </button>
           </div>
-        </div>
+        </header>
 
         {/* Content Body */}
         <div className="flex-1 p-6 overflow-y-auto custom-scroll space-y-6">
           {/* Provider Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {allProviders.map((provider) => {
               const info = provider.getModelInfo();
               const health = healthStatuses.find(h => h.provider === provider.id);
@@ -155,12 +165,9 @@ export const AIProvidersModal = ({ isOpen, onClose }: AIProvidersModalProps) => 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-orbitron font-extrabold text-white uppercase tracking-wider flex items-center gap-2">
-                        {provider.id === 'nemotron' && <Flame className="w-4 h-4 text-amber-400" />}
                         {provider.id === 'gemini' && <Sparkles className="w-4 h-4 text-cyan-400" />}
-                        {provider.id === 'openai' && <Bot className="w-4 h-4 text-emerald-400" />}
-                        {provider.id === 'claude' && <Compass className="w-4 h-4 text-purple-400" />}
-                        {provider.id === 'deepseek' && <Zap className="w-4 h-4 text-blue-400" />}
-                        {provider.id === 'local' && <Layers className="w-4 h-4 text-rose-400" />}
+                        {provider.id === 'nemotron' && <Flame className="w-4 h-4 text-amber-400" />}
+                        {provider.id === 'openrouter' && <Layers className="w-4 h-4 text-purple-400" />}
                         {provider.name}
                       </span>
                     </div>
@@ -216,13 +223,13 @@ export const AIProvidersModal = ({ isOpen, onClose }: AIProvidersModalProps) => 
             {/* Task Routing Configuration Table */}
             <div className="p-5 rounded-2xl bg-black/60 border border-white/10 space-y-4">
               <span className="text-xs font-orbitron font-extrabold text-amber-300 uppercase tracking-widest flex items-center gap-2">
-                <Compass className="w-4 h-4 text-amber-400" /> INTELLIGENT MODEL ROUTING LOGIC
+                <Compass className="w-4 h-4 text-amber-400" /> INTELLIGENT MODEL ROUTING POLICY
               </span>
 
               <div className="space-y-2 font-mono text-xs">
                 <div className="p-3 rounded-xl bg-slate-900/60 border border-white/10 flex items-center justify-between">
                   <div>
-                    <span className="font-bold text-white block">Complex Reasoning & Math</span>
+                    <span className="font-bold text-white block">Deep Architecture & Reasoning</span>
                     <span className="text-[10px] text-slate-400">Task: complexReasoning</span>
                   </div>
                   <span className="px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-400/40 text-amber-300 font-bold text-[10px]">
@@ -232,31 +239,21 @@ export const AIProvidersModal = ({ isOpen, onClose }: AIProvidersModalProps) => 
 
                 <div className="p-3 rounded-xl bg-slate-900/60 border border-white/10 flex items-center justify-between">
                   <div>
-                    <span className="font-bold text-white block">Software Engineering & Debugging</span>
-                    <span className="text-[10px] text-slate-400">Task: coding / debugging</span>
-                  </div>
-                  <span className="px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-400/40 text-amber-300 font-bold text-[10px]">
-                    NVIDIA NEMOTRON ULTRA
-                  </span>
-                </div>
-
-                <div className="p-3 rounded-xl bg-slate-900/60 border border-white/10 flex items-center justify-between">
-                  <div>
-                    <span className="font-bold text-white block">General Conversation & Multimodal Vision</span>
-                    <span className="text-[10px] text-slate-400">Task: generalChat / vision</span>
+                    <span className="font-bold text-white block">Coding, Vision & General Conversation</span>
+                    <span className="text-[10px] text-slate-400">Task: coding / generalChat / vision</span>
                   </div>
                   <span className="px-2.5 py-1 rounded-lg bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 font-bold text-[10px]">
-                    GOOGLE GEMINI 2.5
+                    GOOGLE GEMINI 3.6 FLASH
                   </span>
                 </div>
 
                 <div className="p-3 rounded-xl bg-slate-900/60 border border-white/10 flex items-center justify-between">
                   <div>
-                    <span className="font-bold text-white block">Deep Architectural Research</span>
-                    <span className="text-[10px] text-slate-400">Task: research</span>
+                    <span className="font-bold text-white block">Automated Failover & Quota Protection</span>
+                    <span className="text-[10px] text-slate-400">Task: fallbackOrder</span>
                   </div>
                   <span className="px-2.5 py-1 rounded-lg bg-purple-500/20 border border-purple-400/40 text-purple-300 font-bold text-[10px]">
-                    CLAUDE 3.5 SONNET
+                    OPENROUTER FAILOVER
                   </span>
                 </div>
               </div>
@@ -273,13 +270,12 @@ export const AIProvidersModal = ({ isOpen, onClose }: AIProvidersModalProps) => 
                   <select
                     value={selectedTask}
                     onChange={(e) => setSelectedTask(e.target.value as TaskCategory)}
-                    className="bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none font-mono"
+                    className="bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none font-mono cursor-pointer"
                   >
-                    <option value="coding">Task: Coding (Nemotron)</option>
-                    <option value="complexReasoning">Task: Complex Reasoning (Nemotron)</option>
                     <option value="generalChat">Task: General Chat (Gemini)</option>
-                    <option value="research">Task: Research (Claude)</option>
-                    <option value="localOffline">Task: Local Offline (Llama 3.2)</option>
+                    <option value="coding">Task: Coding (Gemini)</option>
+                    <option value="complexReasoning">Task: Complex Reasoning (Nemotron)</option>
+                    <option value="research">Task: Deep Research (Gemini Grounded)</option>
                   </select>
 
                   <button

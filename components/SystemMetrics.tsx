@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Cpu, Zap, HardDrive, Globe, Battery, AlertCircle, CheckCircle2, Laptop } from 'lucide-react';
+import { Cpu, Zap, HardDrive, Globe, Battery, AlertCircle, CheckCircle2, Laptop, Thermometer } from 'lucide-react';
 import { telemetryService, DeviceTelemetryState } from '../services/telemetryService';
 
 interface MetricRowProps {
@@ -24,7 +24,7 @@ const MetricRow: React.FC<MetricRowProps> = ({
   const isAvailable = status === 'available' && numericValue !== null;
 
   return (
-    <div className="space-y-1.5 mb-4">
+    <div className="space-y-1.5 mb-3.5">
       <div className="flex justify-between items-center text-[9px] font-orbitron tracking-[0.15em] text-slate-400">
         <div className="flex items-center gap-1.5">
           <Icon className={`w-3.5 h-3.5 ${isAvailable ? colorClass : 'text-slate-500'}`} />
@@ -43,7 +43,9 @@ const MetricRow: React.FC<MetricRowProps> = ({
           />
         ) : (
           <div className="h-full w-full bg-slate-800/30 flex items-center justify-center">
-            <span className="text-[7px] font-mono text-slate-600 tracking-wider">NO HARDWARE FEED</span>
+            <span className="text-[7px] font-mono text-slate-600 tracking-wider">
+              {status === 'unsupported' ? 'UNSUPPORTED SENSOR' : 'NO HARDWARE FEED'}
+            </span>
           </div>
         )}
       </div>
@@ -100,7 +102,7 @@ export const SystemMetrics: React.FC = () => {
           <AlertCircle className="w-3.5 h-3.5 text-cyan-400 shrink-0 mt-0.5" />
           <div>
             <span className="font-bold text-white block font-orbitron text-[8px] uppercase">Browser Sandbox Environment</span>
-            Host CPU, RAM, and Disk metrics require native OS daemon (<span className="font-mono text-cyan-300">localhost:8000</span>).
+            Host hardware telemetry requires local Python bridge daemon (<span className="font-mono text-cyan-300">python jarvis_bridge.py</span>).
           </div>
         </div>
       )}
@@ -113,7 +115,7 @@ export const SystemMetrics: React.FC = () => {
         icon={Cpu} 
         colorClass="text-cyan-400" 
         status={telemetry.cpu.usagePercent.status}
-        helperText={telemetry.cpu.cores.display !== 'N/A' ? telemetry.cpu.cores.display : undefined}
+        helperText={telemetry.cpu.cores.display !== 'N/A' ? `${telemetry.cpu.cores.display} ${telemetry.cpu.frequencyMhz.display !== 'N/A' ? `• ${telemetry.cpu.frequencyMhz.display}` : ''}` : undefined}
       />
 
       <MetricRow 
@@ -133,7 +135,7 @@ export const SystemMetrics: React.FC = () => {
         icon={HardDrive} 
         colorClass="text-purple-400" 
         status={telemetry.disk.usedPercent.status}
-        helperText={telemetry.disk.freeSpace.display !== 'Unavailable' ? telemetry.disk.freeSpace.display : undefined}
+        helperText={telemetry.disk.freeSpace.display !== 'Unavailable' ? `${telemetry.disk.driveLabel.display} • ${telemetry.disk.freeSpace.display}` : undefined}
       />
 
       <MetricRow 
@@ -143,7 +145,17 @@ export const SystemMetrics: React.FC = () => {
         icon={Globe} 
         colorClass="text-indigo-400" 
         status={telemetry.gpu.usagePercent.status}
-        helperText={telemetry.gpu.name.display !== 'Unavailable' ? telemetry.gpu.name.display : undefined}
+        helperText={telemetry.gpu.name.display !== 'Unavailable' && telemetry.gpu.name.display !== 'Unsupported' ? telemetry.gpu.name.display : undefined}
+      />
+
+      <MetricRow 
+        label="TEMPERATURE" 
+        displayValue={telemetry.temperature.celsius.display} 
+        numericValue={telemetry.temperature.celsius.value} 
+        icon={Thermometer} 
+        colorClass="text-amber-400" 
+        status={telemetry.temperature.celsius.status}
+        helperText={telemetry.temperature.sensorName.display !== 'Unavailable' ? telemetry.temperature.sensorName.display : undefined}
       />
 
       <MetricRow 
@@ -168,16 +180,16 @@ export const SystemMetrics: React.FC = () => {
           </div>
 
           <div className="flex items-center justify-between">
-            <span>NETWORK LINK:</span>
-            <span className={telemetry.network.isOnline ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
-              {telemetry.network.isOnline ? 'CONNECTED' : 'OFFLINE'}
+            <span>NATIVE PC BRIDGE:</span>
+            <span className={isLocal ? 'text-emerald-400 font-bold' : 'text-slate-500 font-bold'}>
+              {isLocal ? 'CONNECTED (127.0.0.1:8765)' : 'DISCONNECTED'}
             </span>
           </div>
 
           <div className="flex items-center justify-between">
-            <span>DEVICE TELEMETRY:</span>
+            <span>HARDWARE TELEMETRY:</span>
             <span className={isLocal ? 'text-emerald-300 font-bold' : 'text-slate-500 font-bold'}>
-              {isLocal ? 'VERIFIED REAL' : 'UNAVAILABLE'}
+              {isLocal ? 'REAL SENSORS ACTIVE' : 'UNAVAILABLE (SANDBOX)'}
             </span>
           </div>
         </div>

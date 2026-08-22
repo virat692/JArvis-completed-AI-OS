@@ -6,6 +6,7 @@ import {
   ProviderHealthStatus, 
   ProviderModelInfo 
 } from '../interfaces/AIProvider';
+import { credentialManager } from '../services/credentialManager';
 
 export class GeminiProvider implements AIProvider {
   public id = 'gemini';
@@ -15,11 +16,23 @@ export class GeminiProvider implements AIProvider {
   private defaultModel: string = 'gemini-3.6-flash';
 
   constructor() {
-    this.apiKey = process.env.GEMINI_API_KEY || '';
+    this.refreshKey();
+  }
+
+  private refreshKey() {
+    this.apiKey = credentialManager.getKey('gemini') || process.env.GEMINI_API_KEY || process.env.API_KEY || '';
+  }
+
+  public setApiKey(key: string): void {
+    this.apiKey = key;
+  }
+
+  public setModel(model: string): void {
+    this.defaultModel = model;
   }
 
   public async initialize(): Promise<void> {
-    this.apiKey = process.env.GEMINI_API_KEY || '';
+    this.refreshKey();
   }
 
   public getModelInfo(): ProviderModelInfo {

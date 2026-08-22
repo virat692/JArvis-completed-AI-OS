@@ -347,18 +347,23 @@ export const CinematicUserWorkspace: React.FC<CinematicUserWorkspaceProps> = ({
             <div className="flex items-center gap-1.5 font-orbitron font-extrabold text-sm sm:text-base tracking-wider text-cyan-300 drop-shadow-[0_0_10px_rgba(0,242,255,0.8)]">
               <Clock className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
               <span className="text-[9px] font-mono font-bold text-slate-400 tracking-wider uppercase mr-0.5">TIME:</span>
-              <span>{time.toLocaleTimeString([], { hour12: false })}</span>
+              <span>{(() => {
+                let h = time.getHours() % 12 || 12;
+                const m = time.getMinutes().toString().padStart(2, '0');
+                const s = time.getSeconds().toString().padStart(2, '0');
+                return `${h.toString().padStart(2, '0')}:${m}:${s}`;
+              })()}</span>
             </div>
           </div>
         </div>
 
-        {/* Top Center Holographic AI Operational Mode Switcher */}
-        <div className="flex items-center gap-1.5 p-1 rounded-full bg-[#030914]/60 border border-cyan-500/30 backdrop-blur-xl shadow-[0_0_15px_rgba(0,242,255,0.15)] z-50">
-          {/* JARVIS System Console Mode Button */}
+        {/* Top Center Holographic AI System Console Trigger */}
+        <div className="z-50 flex items-center">
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
+              playDigitalPingSound();
               setUiMode('developer');
               if (setLogs) {
                 setLogs(prev => [
@@ -367,34 +372,29 @@ export const CinematicUserWorkspace: React.FC<CinematicUserWorkspaceProps> = ({
                 ]);
               }
             }}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-orbitron font-extrabold uppercase transition-all duration-300 cursor-pointer whitespace-nowrap ${
-              uiMode === 'developer'
-                ? 'bg-amber-500 text-black shadow-[0_0_14px_rgba(245,158,11,0.8)] font-black'
-                : 'text-slate-300 hover:text-amber-300 hover:bg-amber-500/10'
-            }`}
+            className="group relative flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#030d1a]/90 via-[#07152b]/95 to-[#0b1b36]/90 border border-cyan-500/35 hover:border-amber-400/80 shadow-[0_0_20px_rgba(0,242,255,0.15)] hover:shadow-[0_0_25px_rgba(245,158,11,0.35),0_0_12px_rgba(0,242,255,0.25)] backdrop-blur-2xl transition-all duration-300 transform hover:-translate-y-0.5 active:scale-95 cursor-pointer"
             title="Switch to JARVIS System Console & Diagnostic Telemetry"
           >
-            <Code2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-            <span className="whitespace-nowrap">SYSTEM CONSOLE</span>
-          </button>
+            {/* Holographic Glowing Code Icon Box */}
+            <div className="w-5 h-5 rounded-md bg-amber-500/15 border border-amber-500/40 flex items-center justify-center text-amber-400 group-hover:text-amber-300 group-hover:border-amber-400/80 group-hover:bg-amber-500/25 transition-all shadow-[0_0_8px_rgba(245,158,11,0.25)] shrink-0">
+              <Code2 className="w-3 h-3 stroke-[2.5]" />
+            </div>
 
-          {/* Autonomous Reasoning Mode Button */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (setLogs) {
-                setLogs(prev => [
-                  { id: `auto-${Date.now()}`, text: '🤖 Autonomous Cognitive Loop Initiated • Scanning System Tasks • System Optimal ✓', sender: 'SYSTEM', timestamp: new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }), type: 'info' },
-                  ...prev
-                ]);
-              }
-            }}
-            className="flex items-center gap-1 px-3 py-1 rounded-full text-[9px] font-orbitron font-extrabold uppercase transition-all duration-300 text-slate-300 hover:text-emerald-300 hover:bg-emerald-500/10 cursor-pointer whitespace-nowrap"
-            title="Trigger Autonomous AI Reasoning Loop"
-          >
-            <Bot className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-            <span>AUTONOMOUS</span>
+            {/* Typography Label */}
+            <span className="font-orbitron font-extrabold text-[10px] sm:text-[11px] tracking-[0.16em] text-slate-200 group-hover:text-amber-200 transition-colors uppercase whitespace-nowrap drop-shadow-[0_0_6px_rgba(255,255,255,0.15)]">
+              SYSTEM CONSOLE
+            </span>
+
+            {/* High-Tech Pulse Indicator */}
+            <div className="flex items-center gap-1.5 pl-2 border-l border-cyan-500/30 group-hover:border-amber-500/50 transition-colors">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75 group-hover:bg-amber-400"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400 group-hover:bg-amber-400 shadow-[0_0_6px_#00f2ff]"></span>
+              </span>
+              <span className="font-mono font-bold text-[8px] text-cyan-300/80 group-hover:text-amber-300 tracking-wider uppercase">
+                ACTIVE
+              </span>
+            </div>
           </button>
         </div>
       </header>
@@ -440,6 +440,11 @@ export const CinematicUserWorkspace: React.FC<CinematicUserWorkspaceProps> = ({
             isOpenFullModal={isWeatherFullOpen}
             onToggleFullModal={setIsWeatherFullOpen}
             onAskJarvisWeather={onSendMessage}
+            status={status}
+            isLive={isLive}
+            micLevel={micLevel}
+            onSendMessage={onSendMessage}
+            handleStartLive={handleStartLive}
           />
         </div>
 
@@ -455,12 +460,50 @@ export const CinematicUserWorkspace: React.FC<CinematicUserWorkspaceProps> = ({
             ref={logsContainerRef}
             className="flex-1 overflow-y-auto space-y-3 pr-2 scrollbar-none bg-transparent"
           >
-            {logs.length === 0 ? (
-              <div className="text-xs font-mono text-cyan-400/60 font-semibold italic">
-                Neural link active. Speak or command JARVIS to begin...
-              </div>
-            ) : (
-              logs.slice(-18).map((log, idx, arr) => {
+            {(() => {
+              // Strictly filter logs: only show valid conversational messages (OPERATOR/JARVIS) or real activity events, never empty or spammy system noise
+              const conversationLogs = logs.filter((log) => {
+                if (!log || typeof log.message !== 'string') return false;
+                const trimmed = log.message.trim();
+                if (!trimmed) return false;
+
+                // User & AI dialogues are always rendered
+                if (log.source === 'OPERATOR' || log.source === 'JARVIS') {
+                  return true;
+                }
+
+                // Filter out low-level internal sensor, uplink, and background telemetry logs
+                const isInternalSystemNoise = 
+                  trimmed.startsWith('⌬ Neural Link:') ||
+                  trimmed.startsWith('⌬ Mic Sense:') ||
+                  trimmed.startsWith('⌬ Memory Cluster:') ||
+                  trimmed.startsWith('⌬ Neural Clock:') ||
+                  trimmed.startsWith('⌬ Mode manually switched') ||
+                  trimmed.startsWith('⌬ GUI Autonomy:') ||
+                  trimmed.includes('Initiating secure uplink') ||
+                  trimmed.includes('Accessing hardware sensors') ||
+                  trimmed.includes('Speech signal detected') ||
+                  trimmed.includes('Sensors online') ||
+                  trimmed.includes('Real device observation') ||
+                  trimmed.toLowerCase().includes('keepalive');
+
+                if (isInternalSystemNoise) {
+                  return false;
+                }
+
+                // Show only explicit meaningful system alerts/activities with real content
+                return log.type === 'error' || log.type === 'warning' || trimmed.startsWith('⚡') || trimmed.startsWith('✓') || trimmed.startsWith('📋');
+              });
+
+              if (conversationLogs.length === 0) {
+                return (
+                  <div className="text-xs font-mono text-cyan-400/60 font-semibold italic">
+                    Neural link active. Speak or command JARVIS to begin...
+                  </div>
+                );
+              }
+
+              return conversationLogs.slice(-18).map((log, idx, arr) => {
                 const isOperator = log.source === 'OPERATOR';
                 const isJarvis = log.source === 'JARVIS';
                 
@@ -493,7 +536,7 @@ export const CinematicUserWorkspace: React.FC<CinematicUserWorkspaceProps> = ({
                             : 'text-amber-400'
                         }`}
                       >
-                        {isOperator ? '◆ OPERATOR' : isJarvis ? '◈ JARVIS' : '⌬ SYSTEM'}
+                        {isOperator ? '◆ OPERATOR' : isJarvis ? '◈ JARVIS' : '⌬ ACTIVITY'}
                       </span>
                       <span className="text-slate-400 font-bold text-[10px]">
                         {typeof log.timestamp === 'number'
@@ -521,8 +564,8 @@ export const CinematicUserWorkspace: React.FC<CinematicUserWorkspaceProps> = ({
                     </p>
                   </div>
                 );
-              })
-            )}
+              });
+            })()}
           </div>
         </div>
 
@@ -678,8 +721,9 @@ export const CinematicUserWorkspace: React.FC<CinematicUserWorkspaceProps> = ({
         )}
       </main>
 
-      {/* 6. Integrated Floating Holographic Bottom Console (Chat Box + Voice Core Dock) */}
-      <footer className="flex flex-col items-center gap-2 z-50 shrink-0 pb-3 px-6 bg-transparent pointer-events-none">
+      {/* 6. Integrated Floating Holographic Bottom Console (Chat Box + Voice Core Dock - Hidden when Weather Modal is Open) */}
+      {!isWeatherFullOpen && (
+        <footer className="flex flex-col items-center gap-2 z-50 shrink-0 pb-3 px-6 bg-transparent pointer-events-none">
         
         {/* Floating Holographic Capsule Input Bar (Positioned directly above Voice Core dock) */}
         <div className="w-full max-w-lg pointer-events-auto">
@@ -936,6 +980,7 @@ export const CinematicUserWorkspace: React.FC<CinematicUserWorkspaceProps> = ({
 
         </div>
       </footer>
+      )}
 
     </div>
   );

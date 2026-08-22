@@ -70,9 +70,9 @@ const VisionPanel: React.FC<VisionPanelProps> = ({
       <div className="flex items-center justify-between -mt-2 text-[9px] font-mono tracking-widest text-slate-400">
         <span className="flex items-center gap-1.5 text-cyan-400 font-bold">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          LIVE OCR
+          NVIDIA Nemotron OCR v2
         </span>
-        <span className="opacity-60">1280x720 • 60 FPS</span>
+        <span className="text-[8px] font-mono text-emerald-400 bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-500/30">NIM ACTIVE</span>
       </div>
 
       {/* Primary Video Feed */}

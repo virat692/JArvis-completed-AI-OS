@@ -2,6 +2,7 @@ import { WorkflowPipeline, WorkflowStep } from '../types';
 import { eventBus } from '../services/eventBus';
 import { memorySystem } from '../memory/memorySystem';
 import { speakMessage } from '../services/elevenlabs';
+import { browserAgent } from '../services/browserAgent';
 
 const STORAGE_WORKFLOWS_KEY = 'jarvis_workflow_pipelines';
 
@@ -17,6 +18,18 @@ const BUILTIN_WORKFLOWS: WorkflowPipeline[] = [
       { id: 's2', name: 'Open Web Workspace', action: 'open_url', target: 'http://localhost:3000', status: 'PENDING' },
       { id: 's3', name: 'Commit Morning Memory Anchor', action: 'memory_commit', target: 'Morning Operator Workspace Active', status: 'PENDING' },
       { id: 's4', name: 'Jarvis Audio Greeting', action: 'voice_speak', target: 'Good morning Virat Sir. All JARVIS subsystems are fully operational and ready.', status: 'PENDING' }
+    ]
+  },
+  {
+    id: 'wf_browser_intelligence',
+    name: 'Autonomous Web Intelligence & Market Research',
+    description: 'Deploys JARVIS Browser Agent to research trending AI models and market benchmarks, synthesizing results directly to Neural Workspace.',
+    trigger: 'MANUAL',
+    isBuiltin: true,
+    steps: [
+      { id: 's1', name: 'Autonomous Browser Agent Research', action: 'browser_task', target: 'Research top open-source LLMs and hardware accelerators released this quarter and compare specs', status: 'PENDING' },
+      { id: 's2', name: 'Commit Intelligence to Graph', action: 'memory_commit', target: 'Latest AI model benchmarks updated in Neural Knowledge Graph', status: 'PENDING' },
+      { id: 's3', name: 'Voice Briefing', action: 'voice_speak', target: 'Sir, the autonomous browser agent has completed the web intelligence sweep. The comparative dataset is presented in your Neural Workspace.', status: 'PENDING' }
     ]
   },
   {
@@ -170,6 +183,14 @@ export class WorkflowEngine {
           }
         } catch (e) {
           console.warn('[Workflow Engine] Failed to open URL:', e);
+        }
+        break;
+
+      case 'browser_task':
+        try {
+          await browserAgent.executeTask(step.target);
+        } catch (e) {
+          console.warn('[Workflow Engine] Browser task execution error:', e);
         }
         break;
 

@@ -14,7 +14,8 @@ import {
   FileText,
   Activity,
   Layers,
-  History
+  History,
+  X
 } from 'lucide-react';
 import { playTickSound, playWhooshSound } from '../../services/soundEffects';
 import { WorkspaceHistoryDrawer } from './WorkspaceHistoryDrawer';
@@ -75,71 +76,70 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
 
   return (
     <>
-      <header className="w-full bg-[#020b18]/95 border-b border-cyan-500/25 px-4 sm:px-6 py-3 backdrop-blur-2xl flex flex-col gap-3 shrink-0 z-30 relative shadow-[0_4px_30px_rgba(0,0,0,0.8)]">
-        {/* Top Cyan Glowing Accent Line */}
-        <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent pointer-events-none shadow-[0_0_10px_#00f2ff]" />
-
-        {/* Main Top Bar */}
+      {/* 1. TOP STATUS & NAVIGATION HUD (EXACT TASK PANEL TOP BAR STANDARD) */}
+      <header className="w-full bg-[#031024]/90 border-b border-cyan-500/30 px-6 py-3 backdrop-blur-2xl flex flex-col gap-3 shrink-0 z-30 relative shadow-[0_4px_30px_rgba(0,242,255,0.08)]">
+        {/* Top Bar Header Content */}
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          
-          {/* Left: Return Action + Title Hierarchy */}
           <div className="flex items-center gap-3 min-w-0">
-            {/* Back to JARVIS Action Button */}
-            <button
-              onClick={() => { playWhooshSound(); onClose(); }}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-500/15 border border-cyan-400/50 hover:bg-cyan-500/25 hover:border-cyan-300 text-cyan-200 text-[10px] font-orbitron font-extrabold transition-all duration-200 group shadow-[0_0_12px_rgba(0,242,255,0.2)] active:scale-95 shrink-0"
-              title="Return to JARVIS Assistant HUD (ESC)"
-            >
-              <ArrowLeft className="w-3 h-3 group-hover:-translate-x-0.5 transition-transform text-cyan-300" />
-              <span className="hidden sm:inline">BACK TO JARVIS</span>
-              <span className="text-[8px] font-mono text-cyan-400/70 bg-black/40 px-1 py-0.2 rounded border border-cyan-400/20">ESC</span>
-            </button>
-
-            <div className="h-5 w-px bg-cyan-500/20 hidden sm:block" />
-
-            {/* Title Hierarchy */}
-            <div className="flex flex-col min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[9px] font-orbitron font-black tracking-widest text-cyan-400 uppercase">
-                  JARVIS // NEURAL WORKSPACE
-                </span>
-                <span className="text-[8px] font-mono text-slate-400 bg-cyan-950/60 px-1.5 py-0.2 rounded border border-cyan-500/30 font-bold uppercase truncate max-w-[130px]">
-                  {payload.category}
+            <div className="w-10 h-10 rounded-2xl bg-cyan-950/90 border border-cyan-400/80 flex items-center justify-center shadow-[0_0_20px_rgba(0,242,255,0.4)] shrink-0">
+              <Layers className="w-5 h-5 text-cyan-300 animate-pulse" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h1 className="font-orbitron font-extrabold text-base tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-200 via-white to-cyan-400 truncate">
+                  NEURAL WORKSPACE CANVAS
+                </h1>
+                <span className="text-[9px] font-mono font-black text-cyan-400 bg-cyan-950/90 border border-cyan-500/50 px-2.5 py-0.5 rounded-full uppercase tracking-widest flex items-center gap-1.5 shadow-[0_0_10px_rgba(0,242,255,0.25)]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                  DYNAMIC ENGINE ACTIVE
                 </span>
               </div>
-              <h1 className="text-xs sm:text-sm font-orbitron font-extrabold text-white truncate tracking-wide">
-                {payload.headerTitle}
-              </h1>
+              <p className="text-[11px] text-slate-400 font-mono flex items-center gap-2 mt-0.5 truncate">
+                <span className="text-white font-bold truncate max-w-[200px]">{payload.headerTitle}</span>
+                <span>•</span>
+                <span>Category: {payload.category}</span>
+                <span>•</span>
+                <span className="text-cyan-400">Synced Workspace</span>
+              </p>
             </div>
           </div>
 
-          {/* Right: Quick Action Controls */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            {/* History / Archive Button */}
+          {/* Right Header Action Controls */}
+          <div className="flex items-center gap-2.5 shrink-0">
             <button
+              type="button"
+              onClick={handleCopy}
+              className="flex items-center gap-2 px-4 py-2 rounded-full font-orbitron font-black text-xs uppercase tracking-wider bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-600 text-black border border-cyan-200 shadow-[0_0_20px_rgba(0,242,255,0.6)] hover:scale-105 active:scale-95 transition-all cursor-pointer"
+            >
+              {copied ? <Check className="w-4 h-4 font-black text-emerald-950" /> : <Copy className="w-4 h-4 font-black" />}
+              <span>{copied ? 'COPIED' : 'COPY CONTENT'}</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => { playWhooshSound(); setIsHistoryOpen(true); }}
-              className="p-1 sm:px-2.5 sm:py-1 rounded-lg bg-cyan-950/60 border border-cyan-500/30 hover:border-cyan-400 hover:bg-cyan-500/20 text-cyan-200 text-[10px] font-orbitron font-bold flex items-center gap-1 transition-all shadow-[0_0_10px_rgba(0,242,255,0.15)] active:scale-95"
+              className="p-2 rounded-xl text-slate-400 hover:text-cyan-300 hover:bg-cyan-500/10 border border-cyan-500/20 transition-all cursor-pointer hidden sm:flex"
               title="Open Workspace Archive & History"
             >
-              <History className="w-3 h-3 text-cyan-400" />
-              <span className="hidden sm:inline">HISTORY</span>
+              <History className="w-4 h-4" />
             </button>
 
             <button
-              onClick={handleCopy}
-              className="p-1 sm:px-2.5 sm:py-1 rounded-lg bg-slate-900/80 border border-cyan-500/20 hover:border-cyan-400/50 text-slate-300 hover:text-cyan-200 text-[10px] font-mono flex items-center gap-1 transition-all shadow-sm active:scale-95"
-              title="Copy current presentation content to clipboard"
-            >
-              {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-cyan-400" />}
-              <span className="hidden sm:inline">{copied ? 'Copied' : 'Copy'}</span>
-            </button>
-
-            <button
+              type="button"
               onClick={onToggleFullscreen}
-              className="p-1 sm:p-1.5 rounded-lg bg-slate-900/80 border border-cyan-500/20 hover:border-cyan-400/50 text-slate-300 hover:text-cyan-200 transition-all shadow-sm active:scale-95"
-              title={isFullscreen ? "Exit Fullscreen" : "Fullscreen Presentation"}
+              className="p-2 rounded-xl text-slate-400 hover:text-cyan-300 hover:bg-cyan-500/10 border border-cyan-500/20 transition-all cursor-pointer"
+              title={isFullscreen ? "Exit Fullscreen HUD" : "Fullscreen Workspace HUD"}
             >
-              {isFullscreen ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
+              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { playWhooshSound(); onClose(); }}
+              className="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-950/20 border border-transparent hover:border-rose-500/30 transition-all cursor-pointer"
+              title="Return to Main HUD (ESC)"
+            >
+              <X className="w-5 h-5" />
             </button>
           </div>
         </div>

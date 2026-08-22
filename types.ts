@@ -35,7 +35,7 @@ export interface LogEntry {
 export interface UpgradeRequest {
   id: string;
   task: string;
-  status: 'failed';
+  status?: 'failed' | 'pending' | 'applied' | string;
   reason: string;
   timestamp: number;
   priority: 'low' | 'medium' | 'high';
@@ -136,7 +136,7 @@ export interface GraphQueryResult {
 }
 
 // --- Modular Workflow Engine Types ---
-export type WorkflowActionType = 'launch_app' | 'run_command' | 'open_url' | 'voice_speak' | 'memory_commit' | 'custom';
+export type WorkflowActionType = 'launch_app' | 'run_command' | 'open_url' | 'voice_speak' | 'memory_commit' | 'browser_task' | 'custom';
 
 export interface WorkflowStep {
   id: string;
@@ -162,7 +162,7 @@ export interface WorkflowPipeline {
 export interface AIModelRoute {
   id: string;
   name: string;
-  provider: 'gemini' | 'nemotron' | 'openrouter' | 'openai' | 'claude' | 'deepseek' | 'local';
+  provider: 'gemini' | 'nemotron' | 'openrouter';
   contextLimit: string;
   latencyScore: 'ULTRA_FAST' | 'BALANCED' | 'HIGH_REASONING';
   costPer1kTokens: string;

@@ -78,16 +78,67 @@ async def search_memory(query: str, n_results: int = 3):
 async def perform_research(task_id: str, query: str):
     tasks[task_id] = {"status": "processing", "progress": 10}
     try:
-        # Step 1: Simulated Search (In a real app, use Serper or Google API)
-        tasks[task_id]["progress"] = 30
+        tavily_key = os.getenv("TAVILY_API_KEY")
+        exa_key = os.getenv("EXA_API_KEY")
+
+        if tavily_key:
+            tasks[task_id]["progress"] = 30
+            async with httpx.AsyncClient() as client:
+                res = await client.post(
+                    "https://api.tavily.com/search",
+                    json={
+                        "api_key": tavily_key,
+                        "query": query,
+                        "search_depth": "advanced",
+                        "include_answer": True,
+                        "max_results": 5
+                    },
+                    timeout=15.0
+                )
+                if res.status_code == 200:
+                    data = res.json()
+                    answer = data.get("answer", "")
+                    results = data.get("results", [])
+                    summary = "\n".join([f"- {r.get('title')}: {r.get('content', '')[:200]}" for r in results[:4]])
+                    tasks[task_id] = {
+                        "status": "completed",
+                        "progress": 100,
+                        "result": f"Tavily Intelligence for '{query}':\n{answer}\n\nKey Findings:\n{summary}"
+                    }
+                    return
+
+        if exa_key:
+            tasks[task_id]["progress"] = 40
+            async with httpx.AsyncClient() as client:
+                res = await client.post(
+                    "https://api.exa.ai/search",
+                    headers={"x-api-key": exa_key, "Content-Type": "application/json"},
+                    json={
+                        "query": query,
+                        "useAutoprompt": True,
+                        "numResults": 5,
+                        "contents": {"text": {"maxCharacters": 800}}
+                    },
+                    timeout=15.0
+                )
+                if res.status_code == 200:
+                    data = res.json()
+                    results = data.get("results", [])
+                    summary = "\n".join([f"- {r.get('title')}: {r.get('text', '')[:200]}" for r in results[:4]])
+                    tasks[task_id] = {
+                        "status": "completed",
+                        "progress": 100,
+                        "result": f"Exa Neural Intelligence for '{query}':\n\nKey Findings:\n{summary}"
+                    }
+                    return
+
+        # Fallback search if credentials not set
+        tasks[task_id]["progress"] = 50
         async with httpx.AsyncClient() as client:
-            # Example: Scrape a placeholder for demo
-            response = await client.get(f"https://www.google.com/search?q={query}")
-            tasks[task_id]["progress"] = 60
-            
-            # Simple synthesis
+            response = await client.get(f"https://www.google.com/search?q={query}", timeout=10.0)
+            tasks[task_id]["progress"] = 80
             soup = BeautifulSoup(response.text, 'html.parser')
-            text_content = soup.get_text()[:2000] # Limit for RAM
+            text_content = soup.get_text()[:2000]
             
             tasks[task_id] = {
                 "status": "completed",
@@ -95,7 +146,7 @@ async def perform_research(task_id: str, query: str):
                 "result": f"Research Synthesis for '{query}': {text_content[:500]}..."
             }
     except Exception as e:
-        tasks[task_id] = {"status": "failed", "error": str(e)}
+        tasks[task_id] = {"status": "failed", "error": "Search execution failed."}
 
 @app.post("/research")
 async def start_research(query: str, background_tasks: BackgroundTasks):

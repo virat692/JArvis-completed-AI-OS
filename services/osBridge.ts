@@ -1,192 +1,169 @@
-
 /**
- * JARVIS OS Bridge Service - SuperBrain OS Controller Edition
- * Connects the React frontend to the local OS controller bridge (FastAPI / Native API)
- * with support for App, File, Window, Process, Input, Desktop, System, Browser, and Power management.
+ * JARVIS OS Bridge Service - Production Native OS Controller
+ * Connects the React frontend to the local OS controller bridge (jarvis_bridge.py on ws://127.0.0.1:8765)
+ * with support for Applications, Filesystem, Terminal CLI, Audio, Power management, and Vector Memory.
  */
 
-const BRIDGE_URL = 'http://localhost:8000';
+import { telemetryService } from './telemetryService';
+import { eventBus } from './eventBus';
 
 export interface OSCommand {
   module?: string;
   action: string;
   params?: Record<string, any>;
+  args?: Record<string, any>;
 }
 
 export const osBridge = {
+  isConnected(): boolean {
+    return telemetryService.getTelemetry().isConnectedToLocalBridge;
+  },
+
   async checkStatus(): Promise<boolean> {
-    try {
-      const response = await fetch(`${BRIDGE_URL}/health`);
-      return response.ok;
-    } catch {
-      return false;
-    }
+    return this.isConnected();
   },
 
   async execute(command: OSCommand): Promise<any> {
-    try {
-      const response = await fetch(`${BRIDGE_URL}/execute`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(command),
-      });
-      if (response.ok) {
-        return await response.json();
+    const payload = {
+      action: command.action,
+      params: command.params || command.args || {}
+    };
+
+    // If connected to local Python bridge, execute over WebSocket
+    if (this.isConnected()) {
+      try {
+        const result = await telemetryService.sendAction(payload);
+        eventBus.emit('logger.entry', {
+          source: 'OS_BRIDGE',
+          message: `Executed '${command.action}': ${result.message || JSON.stringify(result).substring(0, 80)}`,
+          type: result.success ? 'success' : 'warning'
+        });
+        return result;
+      } catch (err) {
+        return { success: false, message: `Bridge execution error: ${String(err)}` };
       }
-    } catch (e) {
-      // Bridge server offline fallback simulation
     }
 
-    // High-fidelity local simulation mode when native OS bridge agent is bridging in web runtime
+    // High-fidelity feedback when running in browser sandbox
     return this.simulateOSExecution(command);
   },
 
-  // Local fallback simulation with full feedback when running in browser sandbox
+  // Fallback feedback when bridge is not connected
   simulateOSExecution(command: OSCommand): any {
     const { action, params = {} } = command;
     const module = command.module || 'os_controller';
 
     switch (action) {
-      case 'kill_process':
-        return { success: true, message: `[process_manager] Process PID ${params.pid || 'target'} (${params.process_name || 'app'}) terminated cleanly.` };
-
-      case 'memory_flush':
-        return { success: true, message: `[memory_manager] RAM swap cache flushed. Reclaimed 1.8GB physical memory.` };
-
-      case 'cli_execute':
-        return { success: true, message: `[terminal] Output for "${params.command}": Execution completed with returncode 0.` };
-
-      case 'set_volume':
-        return { success: true, message: `[audio_controller] System volume level set to ${params.level}%.` };
-
-      case 'set_brightness':
-        return { success: true, message: `[display_controller] Display panel brightness level set to ${params.level}%.` };
-
-      case 'security_firewall':
-        return { success: true, message: `[security_hub] Firewall rule set to ${params.state ? 'ACTIVE' : 'DISENGAGED'}.` };
-
-      case 'macro':
-        return { success: true, message: `[macro_engine] Automation sequence "${params.name || 'custom'}" executed all sub-tasks successfully.` };
-
-      case 'open_file':
-        return { success: true, message: `[file_manager] File "${params.path}" opened in default system handler.` };
-
-      case 'open_app':
-      case 'launch_app':
-        return { success: true, message: `[${module}] Application "${params.app_name || params.target}" launched successfully into foreground.` };
-      case 'close_app':
-        return { success: true, message: `[${module}] Application "${params.app_name || params.target}" terminated safely.` };
-      case 'switch_app':
-        return { success: true, message: `[${module}] Focused window switched to "${params.app_name || params.target}".` };
-      case 'list_apps':
-        return { 
-          success: true, 
-          data: [
-            { name: 'VS Code', pid: 1042, cpu: '1.2%', memory: '340MB' },
-            { name: 'Google Chrome', pid: 2180, cpu: '4.5%', memory: '1.2GB' },
-            { name: 'Spotify', pid: 3890, cpu: '0.8%', memory: '180MB' },
-            { name: 'Windows Terminal', pid: 4120, cpu: '0.1%', memory: '65MB' }
-          ] 
-        };
-
-      case 'organize_downloads':
-        return { success: true, message: `[file_manager] Downloads directory organized into /Documents, /Images, /Archives, and /Code folders (24 files sorted).` };
-      case 'storage_analysis':
-        return { 
-          success: true, 
-          summary: "C: Drive 420GB / 512GB (82% used). Found 18.4GB recoverable in Temp cache and duplicate Downloads." 
-        };
-      case 'search_files':
-        return { 
-          success: true, 
-          files: [
-            `C:/Users/Operator/Documents/${params.query || 'document'}.pdf`,
-            `C:/Users/Operator/Downloads/Archive_${params.query || 'data'}.zip`
-          ] 
-        };
-
-      case 'screenshot':
-        return { success: true, message: `[desktop_controller] Screenshot captured and saved to Pictures/Screenshots/jarvis_capture_${Date.now()}.png` };
-      case 'show_desktop':
-        return { success: true, message: `[window_manager] All windows minimized. Desktop active.` };
-
+      case 'get_telemetry':
       case 'system_metrics':
       case 'system_info':
         return {
           success: false,
           bridgeOffline: true,
-          message: "LOCAL DEVICE BRIDGE OFFLINE: Hardware telemetry (CPU, RAM, GPU, Disk, Battery, Temp) unavailable in Browser Mode. Connect local daemon on localhost:8000 for real device telemetry.",
-          data: {
-            cpu_usage: "Unavailable (Browser Mode)",
-            memory_usage: "Unavailable (Browser Mode)",
-            gpu_usage: "Unavailable",
-            disk_free: "Unavailable",
-            battery: "Unavailable",
-            temperature: "Unavailable",
-            network_speed: "Unavailable",
-            os_version: "Web Browser Environment"
-          }
+          message: "LOCAL DEVICE BRIDGE OFFLINE: Hardware telemetry (CPU, RAM, GPU, Disk, Battery, Temp) unavailable in Browser Mode. Connect jarvis_bridge.py for real device control.",
+          data: null
         };
 
+      case 'open_app':
+      case 'launch_app':
+        return { 
+          success: false, 
+          bridgeOffline: true,
+          message: `NATIVE BRIDGE OFFLINE: Cannot launch "${params.name || params.app_name || 'application'}" on host machine. Start 'python jarvis_bridge.py' to enable local PC control.`
+        };
+
+      case 'close_app':
+      case 'kill_process':
+        return { 
+          success: false, 
+          bridgeOffline: true,
+          message: `NATIVE BRIDGE OFFLINE: Cannot terminate host process. Start 'python jarvis_bridge.py' on your Windows machine.`
+        };
+
+      case 'list_apps':
       case 'process_list':
+        return { 
+          success: false, 
+          bridgeOffline: true,
+          message: "NATIVE BRIDGE OFFLINE: Process inspection requires local bridge connection.",
+          data: []
+        };
+
+      case 'create_file':
+      case 'read_file':
+      case 'delete_file':
+      case 'create_folder':
+      case 'list_folder':
         return {
           success: false,
           bridgeOffline: true,
-          message: "LOCAL DEVICE BRIDGE OFFLINE: Native host process inspection requires local device bridge connection.",
-          processes: []
+          message: `NATIVE BRIDGE OFFLINE: Host filesystem operation '${action}' requires local bridge connection.`
         };
 
-      case 'power_control':
-        return { success: true, message: `[power_manager] Command "${params.cmd || action}" executed.` };
+      case 'cli_execute':
+      case 'execute_command':
+      case 'terminal':
+        return { 
+          success: false, 
+          bridgeOffline: true,
+          message: `NATIVE BRIDGE OFFLINE: Terminal execution of "${params.command}" requires local bridge daemon.`
+        };
+
+      case 'set_volume':
+      case 'volume':
+        return { 
+          success: false, 
+          bridgeOffline: true,
+          message: `NATIVE BRIDGE OFFLINE: Hardware volume control requires local bridge daemon.`
+        };
+
+      case 'lock':
+      case 'shutdown':
+      case 'restart':
+      case 'sleep':
+        return { 
+          success: false, 
+          bridgeOffline: true,
+          message: `NATIVE BRIDGE OFFLINE: Host power control (${action}) requires local bridge connection.`
+        };
 
       default:
-        return { success: true, message: `[${module}] Action "${action}" completed cleanly.` };
+        return { 
+          success: false, 
+          bridgeOffline: true,
+          message: `[${module}] Action "${action}" requires local bridge daemon.` 
+        };
     }
   },
 
   // --- Cognitive Memory API ---
   async storeMemory(content: string, metadata: any = {}): Promise<any> {
-    try {
-      const response = await fetch(`${BRIDGE_URL}/memory/store`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, metadata }),
-      });
-      return await response.json();
-    } catch {
-      return { success: true, localOnly: true };
+    if (this.isConnected()) {
+      return this.execute({ action: 'store_memory', params: { content, metadata } });
     }
+    return { success: true, localOnly: true };
   },
 
   async searchMemory(query: string): Promise<any> {
-    try {
-      const response = await fetch(`${BRIDGE_URL}/memory/search?query=${encodeURIComponent(query)}`);
-      return await response.json();
-    } catch {
-      return { results: { documents: [["Local memory search active."]] } };
+    if (this.isConnected()) {
+      return this.execute({ action: 'search_memory', params: { query } });
     }
+    return { results: { documents: [["Local memory active."]] } };
   },
 
   // --- Research Agent API ---
   async startResearch(query: string): Promise<string> {
-    try {
-      const response = await fetch(`${BRIDGE_URL}/research?query=${encodeURIComponent(query)}`, {
-        method: 'POST'
-      });
-      const data = await response.json();
-      return data.task_id;
-    } catch {
-      return `task_${Date.now()}`;
+    if (this.isConnected()) {
+      const res = await this.execute({ action: 'start_research', params: { query } });
+      if (res?.task_id) return res.task_id;
     }
+    return `task_${Date.now()}`;
   },
 
   async getTaskStatus(taskId: string): Promise<any> {
-    try {
-      const response = await fetch(`${BRIDGE_URL}/task/${taskId}`);
-      return await response.json();
-    } catch {
-      return { status: 'completed', result: `Research analysis complete for ${taskId}.` };
+    if (this.isConnected()) {
+      return this.execute({ action: 'get_task_status', params: { task_id: taskId } });
     }
+    return { status: 'completed', result: `Research analysis complete for ${taskId}.` };
   }
 };
-

@@ -94,6 +94,23 @@
         0%, 100% { opacity: 0.3; stroke-dashoffset: 0; }
         50% { opacity: 0.9; stroke-dashoffset: -20; }
       }
+      @keyframes atmosphericFloat {
+        0%, 100% { transform: translateY(0px) rotate(0deg); }
+        50% { transform: translateY(-8px) rotate(1deg); }
+      }
+      @keyframes sunRaySpin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      @keyframes rainDropFall {
+        0% { transform: translateY(-4px) scaleY(0.8); opacity: 0; }
+        40% { opacity: 1; transform: translateY(8px) scaleY(1.1); }
+        100% { transform: translateY(18px) scaleY(0.6); opacity: 0; }
+      }
+      @keyframes lightningFlash {
+        0%, 85%, 100% { opacity: 0; }
+        88%, 94% { opacity: 1; }
+      }
 
       /* Global Custom Dark Theme Scrollbars - Rule #4 */
       *::-webkit-scrollbar {
@@ -121,13 +138,17 @@
 
       /* Hide scrollbar utility */
       .scrollbar-none::-webkit-scrollbar,
-      .no-scrollbar::-webkit-scrollbar {
-        display: none;
+      .no-scrollbar::-webkit-scrollbar,
+      .custom-scroll-none::-webkit-scrollbar {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
       }
       .scrollbar-none,
-      .no-scrollbar {
-        -ms-overflow-style: none;
-        scrollbar-width: none;
+      .no-scrollbar,
+      .custom-scroll-none {
+        -ms-overflow-style: none !important;
+        scrollbar-width: none !important;
       }
 
       /* Smooth Global Theme Transitions & Theme Specific Styling */

@@ -2,9 +2,17 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   Search, Plus, Pin, MessageSquare, Trash2, ChevronRight, FileText, Zap, Shield, Sparkles, X, Copy, Download, Check,
   Star, Brain, Code, Globe, Mic, Folder, Activity, BarChart2, Share2, Network, Eye, Clock, ListFilter, Tag, Cpu,
-  Layers, AlertTriangle, CheckCircle2, FileCode, ImageIcon, ExternalLink, Printer, User, Bot, RefreshCw, Send
+  Layers, AlertTriangle, CheckCircle2, FileCode, ImageIcon, ExternalLink, Printer, User, Bot, RefreshCw, Send, RotateCcw,
+  ArrowRight, Radio, ShieldCheck
 } from 'lucide-react';
 import { ChatSession, LogEntry, ConversationMessage, ConversationRole } from '../types';
+import { 
+  playMechanicalClick, 
+  playWhooshSound, 
+  playDigitalPingSound, 
+  playDirectiveCompleteChime, 
+  playArcReactorSound 
+} from '../services/soundEffects';
 
 interface ChatHistoryPanelProps {
   isVisible: boolean;
@@ -40,8 +48,9 @@ export const ChatHistoryPanel: React.FC<ChatHistoryPanelProps> = ({
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
   const [showNeuralGraphModal, setShowNeuralGraphModal] = useState(false);
-  const [hoveredSessionId, setHoveredSessionId] = useState<string | null>(null);
   const [favoritesMap, setFavoritesMap] = useState<{ [id: string]: boolean }>({});
+  const [quickInputText, setQuickInputText] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -51,6 +60,7 @@ export const ChatHistoryPanel: React.FC<ChatHistoryPanelProps> = ({
 
   // Toggle favorite locally if no external prop provided
   const handleToggleFavorite = (id: string) => {
+    playMechanicalClick();
     if (onToggleFavorite) {
       onToggleFavorite(id);
     } else {
@@ -175,22 +185,16 @@ export const ChatHistoryPanel: React.FC<ChatHistoryPanelProps> = ({
     return groups;
   }, [filteredSessions, favoritesMap]);
 
-  if (!isVisible) return null;
-
   const currentSession = sessions.find(s => s.session_id === activeSessionId) || sessions[0];
 
-  // STRICT ARCHIVE CONVERSATION EXTRACTOR:
-  // ONLY extracts USER (OPERATOR) and JARVIS messages.
-  // Filters out SYSTEM messages, diagnostics, telemetry, EventBus logs, debug logs.
+  // STRICT ARCHIVE CONVERSATION EXTRACTOR
   const conversationMessages: ConversationMessage[] = useMemo(() => {
     if (!currentSession) return [];
 
-    // If session has structured `messages`, use those directly
     if (Array.isArray(currentSession.messages) && currentSession.messages.length > 0) {
       return currentSession.messages.filter(m => m && (m.role === 'USER' || m.role === 'JARVIS'));
     }
 
-    // Otherwise derive from raw logs or active logs
     const rawLogs = currentSession.logs || (activeSessionId === currentSession.session_id ? activeLogs : []);
     if (!Array.isArray(rawLogs)) return [];
 
@@ -216,12 +220,10 @@ export const ChatHistoryPanel: React.FC<ChatHistoryPanelProps> = ({
         const msg = log.message.trim();
         if (!msg || msg === 'undefined' || msg === 'null') return false;
 
-        // STRICT ROLE FILTER: Only OPERATOR / USER or JARVIS are conversation
         const isUser = log.source === 'OPERATOR' || (log as any).role === 'USER';
         const isJarvis = log.source === 'JARVIS' || (log as any).role === 'JARVIS';
         if (!isUser && !isJarvis) return false;
 
-        // Extra guard: Check if message starts with internal system telemetry markers
         const lower = msg.toLowerCase();
         for (const pattern of systemFilterPatterns) {
           if (lower.startsWith(pattern)) return false;
@@ -250,7 +252,7 @@ export const ChatHistoryPanel: React.FC<ChatHistoryPanelProps> = ({
       });
   }, [currentSession, activeSessionId, activeLogs]);
 
-  // Overall Statistics Metrics (calculated on actual conversational exchanges)
+  // Overall Statistics Metrics
   const stats = useMemo(() => {
     const totalSessions = sessions.length;
     const totalConversations = sessions.reduce((acc, s) => {
@@ -268,6 +270,7 @@ export const ChatHistoryPanel: React.FC<ChatHistoryPanelProps> = ({
   // Copy Full Conversation Transcript Handler
   const handleCopyTranscript = () => {
     if (!currentSession || conversationMessages.length === 0) return;
+    playDirectiveCompleteChime();
     const text = conversationMessages.map(m => {
       const roleLabel = m.role === 'USER' ? 'USER' : 'JARVIS';
       return `[${roleLabel}] (${formatLogTime(m.timestamp)}):\n${m.content}\n`;
@@ -280,6 +283,7 @@ export const ChatHistoryPanel: React.FC<ChatHistoryPanelProps> = ({
 
   // Copy Single Message Handler
   const handleCopySingleMessage = (msg: ConversationMessage) => {
+    playDigitalPingSound();
     navigator.clipboard.writeText(msg.content);
     setCopiedMsgId(msg.messageId);
     setTimeout(() => setCopiedMsgId(null), 1800);
@@ -288,6 +292,7 @@ export const ChatHistoryPanel: React.FC<ChatHistoryPanelProps> = ({
   // Export Format Handlers
   const exportSession = (format: 'json' | 'md' | 'html' | 'txt') => {
     if (!currentSession || conversationMessages.length === 0) return;
+    playArcReactorSound();
     setShowExportMenu(false);
 
     let content = '';
@@ -316,7 +321,7 @@ export const ChatHistoryPanel: React.FC<ChatHistoryPanelProps> = ({
   <meta charset="utf-8">
   <title>${currentSession.title} - JARVIS Conversation</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #030816; color: #e2e8f0; padding: 2.5rem; line-height: 1.6; max-width: 900px; margin: 0 auto; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #010814; color: #e2e8f0; padding: 2.5rem; line-height: 1.6; max-width: 900px; margin: 0 auto; }
     .header { border-bottom: 2px solid #00f2ff; padding-bottom: 1.5rem; margin-bottom: 2rem; }
     .title { color: #00f2ff; margin: 0; font-size: 1.75rem; font-family: monospace; letter-spacing: 0.05em; }
     .meta { color: #94a3b8; font-size: 0.85rem; margin-top: 0.5rem; font-family: monospace; }
@@ -363,6 +368,7 @@ export const ChatHistoryPanel: React.FC<ChatHistoryPanelProps> = ({
 
   const handlePrintPDF = () => {
     if (!currentSession || conversationMessages.length === 0) return;
+    playMechanicalClick();
     setShowExportMenu(false);
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
@@ -400,6 +406,15 @@ export const ChatHistoryPanel: React.FC<ChatHistoryPanelProps> = ({
     printWindow.document.close();
   };
 
+  const handleRefreshCaches = () => {
+    playMechanicalClick();
+    setIsRefreshing(true);
+    setTimeout(() => {
+      setIsRefreshing(false);
+      playDigitalPingSound();
+    }, 600);
+  };
+
   // AI Memory Links
   const memoryTags = useMemo(() => {
     if (currentSession?.tags && currentSession.tags.length > 0) {
@@ -417,469 +432,607 @@ export const ChatHistoryPanel: React.FC<ChatHistoryPanelProps> = ({
 
   const estimatedReadingTime = Math.max(1, Math.ceil(totalWords / 180));
 
+  const CATEGORY_FILTERS = [
+    { id: 'all', label: 'All Sessions', count: sessions.length },
+    { id: 'pinned', label: 'Pinned', count: stats.totalPinned },
+    { id: 'favorites', label: 'Starred', count: stats.totalStarred },
+    { id: 'coding', label: 'Coding', count: sessions.filter(s => getSessionCategory(s) === 'coding').length },
+    { id: 'voice', label: 'Voice Mode', count: sessions.filter(s => getSessionCategory(s) === 'voice').length },
+    { id: 'memory', label: 'Memory', count: sessions.filter(s => getSessionCategory(s) === 'memory').length },
+    { id: 'browser', label: 'Browser & Web', count: sessions.filter(s => getSessionCategory(s) === 'browser').length },
+    { id: 'automation', label: 'Automation', count: sessions.filter(s => getSessionCategory(s) === 'automation').length },
+    { id: 'research', label: 'Research', count: sessions.filter(s => getSessionCategory(s) === 'research').length },
+  ];
+
+  if (!isVisible) return null;
+
   return (
-    <div className="w-full h-full flex flex-col md:flex-row gap-3.5 overflow-hidden relative font-sans text-slate-100 select-none">
-      
-      {/* LEFT COLUMN: Archives List, Timeline & Filters */}
-      <div className={`w-full md:w-80 lg:w-96 flex flex-col shrink-0 rounded-2xl border overflow-hidden p-3.5 space-y-2.5 transition-all duration-300 ${
-        isSlate
-          ? 'bg-zinc-900/80 border-slate-800/80 text-slate-200 shadow-xl'
-          : isMinimal
-            ? 'bg-[#0f172a]/80 border-emerald-500/15 text-slate-100 shadow-xl'
-            : isGold
-              ? 'bg-[#181310]/80 border-amber-500/15 text-amber-100 shadow-xl'
-              : 'bg-[#040a17]/80 border-cyan-500/15 text-slate-100 shadow-[0_0_20px_rgba(0,242,255,0.05)]'
-      }`}>
-        
-        {/* Statistics Header Bar */}
-        <div className="grid grid-cols-4 gap-1 p-2 rounded-xl bg-black/50 border border-white/5 text-center text-[9px] font-mono">
-          <div className="flex flex-col">
-            <span className="text-slate-500 text-[8px] uppercase">Archives</span>
-            <span className="text-cyan-300 font-bold font-orbitron">{stats.totalSessions}</span>
+    <div 
+      className="fixed inset-0 z-[99999] w-screen h-screen flex flex-col justify-between p-3 sm:p-4 md:p-5 bg-[#010814]/98 backdrop-blur-3xl animate-in fade-in duration-300 overflow-hidden font-sans select-none text-white max-h-screen no-scrollbar scrollbar-none"
+      onClick={onClose}
+    >
+      {/* Soft Radial Ambient Aura Glows (Matching Weather & Settings Panel) */}
+      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full bg-cyan-500/15 blur-3xl pointer-events-none animate-pulse -z-10" />
+      <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] rounded-full bg-blue-600/12 blur-3xl pointer-events-none -z-10" />
+
+      {/* 1. TOP STATUS & NAVIGATION HUD (EXACT TASK PANEL TOP BAR STANDARD) */}
+      <header 
+        onClick={(e) => e.stopPropagation()}
+        className="px-6 py-3 border-b border-cyan-500/30 bg-[#031024]/90 backdrop-blur-2xl flex items-center justify-between shrink-0 shadow-[0_4px_30px_rgba(0,242,255,0.08)] rounded-2xl mb-2.5"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-cyan-950/90 border border-cyan-400/80 flex items-center justify-center shadow-[0_0_20px_rgba(0,242,255,0.4)]">
+            <MessageSquare className="w-5 h-5 text-cyan-300 animate-pulse" />
           </div>
-          <div className="flex flex-col">
-            <span className="text-slate-500 text-[8px] uppercase">Exchanges</span>
-            <span className="text-blue-300 font-bold font-orbitron">{stats.totalConversations}</span>
-          </div>
-          <div className="flex flex-col">
-            <span className="text-slate-500 text-[8px] uppercase">Starred</span>
-            <span className="text-amber-300 font-bold font-orbitron">{stats.totalStarred}</span>
-          </div>
-          <div className="flex flex-col">
-            <span className="text-slate-500 text-[8px] uppercase">Pinned</span>
-            <span className="text-purple-300 font-bold font-orbitron">{stats.totalPinned}</span>
+          <div>
+            <div className="flex items-center gap-2.5">
+              <h1 className="font-orbitron font-extrabold text-base tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-200 via-white to-cyan-400">
+                JARVIS OS CONVERSATION ARCHIVES
+              </h1>
+              <span className="text-[9px] font-mono font-black text-cyan-400 bg-cyan-950/90 border border-cyan-500/50 px-2.5 py-0.5 rounded-full uppercase tracking-widest flex items-center gap-1.5 shadow-[0_0_10px_rgba(0,242,255,0.25)]">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                {stats.totalSessions} SESSIONS ACTIVE
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-400 font-mono flex items-center gap-2 mt-0.5">
+              <span>{currentSession ? `Current: ${currentSession.title}` : 'Archive Browser'}</span>
+              <span>•</span>
+              <span>Vector Search Synced</span>
+              <span>•</span>
+              <span className="text-cyan-400">{stats.totalMessages} Messages Logged</span>
+            </p>
           </div>
         </div>
 
-        {/* Action Header Buttons */}
-        <div className="flex items-center gap-2">
-          <button 
-            onClick={onNewChat}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 font-orbitron text-[10px] tracking-wider transition-all group font-bold rounded-xl active:scale-[0.98] ${
-              isSlate
-                ? 'bg-zinc-800 hover:bg-zinc-700 border border-slate-600 text-zinc-100 shadow-md'
-                : 'bg-gradient-to-r from-cyan-500/20 via-blue-500/20 to-indigo-500/20 hover:from-cyan-500/30 hover:to-indigo-500/30 border border-cyan-400/40 text-cyan-300 shadow-[0_0_15px_rgba(0,242,255,0.2)]'
-            }`}
+        {/* Action Header Buttons & Close */}
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => {
+              playDigitalPingSound();
+              onNewChat();
+            }}
+            className="flex items-center gap-2 px-4 py-2 rounded-full font-orbitron font-black text-xs uppercase tracking-wider bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-600 text-black border border-cyan-200 shadow-[0_0_20px_rgba(0,242,255,0.6)] hover:scale-105 active:scale-95 transition-all cursor-pointer"
           >
-            <Plus className="w-3.5 h-3.5 group-hover:rotate-90 transition-transform text-cyan-400" />
-            <span>NEW CONVERSATION</span>
+            <Plus className="w-4 h-4 font-black" />
+            <span>NEW CHAT</span>
           </button>
 
           <button
-            onClick={() => setShowAnalyticsModal(true)}
-            className="p-2 rounded-xl border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 transition-all"
+            type="button"
+            onClick={() => {
+              playMechanicalClick();
+              setShowAnalyticsModal(true);
+            }}
+            className="p-2 rounded-xl text-slate-400 hover:text-purple-300 hover:bg-purple-500/10 border border-cyan-500/20 transition-all cursor-pointer hidden sm:flex"
             title="Session Analytics & AI Usage"
           >
             <BarChart2 className="w-4 h-4" />
           </button>
 
           <button
-            onClick={() => setShowNeuralGraphModal(true)}
-            className="p-2 rounded-xl border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 transition-all"
+            type="button"
+            onClick={() => {
+              playMechanicalClick();
+              setShowNeuralGraphModal(true);
+            }}
+            className="p-2 rounded-xl text-slate-400 hover:text-cyan-300 hover:bg-cyan-500/10 border border-cyan-500/20 transition-all cursor-pointer hidden sm:flex"
             title="Conversation Knowledge Graph"
           >
             <Network className="w-4 h-4" />
           </button>
-        </div>
 
-        {/* Filter Input with Live Search Indicator */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-          <input 
-            type="text"
-            placeholder="Search conversation archives..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-950/80 border border-white/10 rounded-xl pl-8 pr-3 py-1.5 text-xs font-mono text-slate-200 focus:border-cyan-400 focus:outline-none transition-all placeholder:text-slate-500 shadow-inner"
-          />
-          {searchQuery && (
+          <button
+            type="button"
+            onClick={handleRefreshCaches}
+            className={`p-2 rounded-xl text-slate-400 hover:text-cyan-300 hover:bg-cyan-500/10 border border-cyan-500/20 transition-all cursor-pointer ${isRefreshing ? 'animate-spin text-cyan-300' : ''}`}
+            title="Refresh Archives"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
+
+          {/* Close Button */}
+          {onClose && (
             <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 hover:text-white"
+              type="button"
+              onClick={() => { playWhooshSound(); onClose(); }}
+              className="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-950/20 border border-transparent hover:border-rose-500/30 transition-all cursor-pointer"
+              title="Close Archive (ESC)"
             >
-              ✕
+              <X className="w-5 h-5" />
             </button>
           )}
         </div>
+      </header>
 
-        {/* Smart Category Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto custom-scroll pb-1 pt-0.5 text-[9.5px] font-mono">
-          {[
-            { id: 'all', label: 'All', icon: Layers },
-            { id: 'pinned', label: 'Pinned', icon: Pin },
-            { id: 'favorites', label: 'Starred', icon: Star },
-            { id: 'coding', label: 'Coding', icon: Code },
-            { id: 'voice', label: 'Voice', icon: Mic },
-            { id: 'memory', label: 'Memory', icon: Brain },
-            { id: 'browser', label: 'Browser', icon: Globe },
-            { id: 'automation', label: 'Auto', icon: Zap },
-          ].map(f => {
-            const Icon = f.icon;
-            const active = selectedFilter === f.id;
-            return (
+      {/* MAIN BODY: 2-COLUMN BALANCED ZERO-OVERFLOW FULL-SCREEN MATRIX */}
+      <div 
+        onClick={(e) => e.stopPropagation()}
+        className="w-full flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 md:gap-4 my-1 items-stretch min-h-0 overflow-hidden"
+      >
+        
+        {/* ======================================================== */}
+        {/* LEFT COLUMN: Archives List, Timeline & Filter Hub (4 cols) */}
+        {/* ======================================================== */}
+        <div className="lg:col-span-4 flex flex-col min-h-0 bg-[#020b18]/80 border border-cyan-500/30 rounded-2xl backdrop-blur-2xl shadow-[0_0_30px_rgba(0,242,255,0.08)] p-3 sm:p-3.5 space-y-3 overflow-hidden">
+          
+          {/* 4-Metric Telemetry Bar */}
+          <div className="grid grid-cols-4 gap-1.5 p-2 rounded-xl bg-slate-950/70 border border-cyan-500/20 text-center shrink-0">
+            <div className="flex flex-col p-1 rounded-lg bg-black/40 border border-white/5">
+              <span className="text-slate-400 text-[8px] font-mono uppercase tracking-wider">ARCHIVES</span>
+              <span className="text-cyan-300 font-extrabold font-orbitron text-xs mt-0.5">{stats.totalSessions}</span>
+            </div>
+            <div className="flex flex-col p-1 rounded-lg bg-black/40 border border-white/5">
+              <span className="text-slate-400 text-[8px] font-mono uppercase tracking-wider">EXCHANGES</span>
+              <span className="text-blue-300 font-extrabold font-orbitron text-xs mt-0.5">{stats.totalConversations}</span>
+            </div>
+            <div className="flex flex-col p-1 rounded-lg bg-black/40 border border-white/5">
+              <span className="text-slate-400 text-[8px] font-mono uppercase tracking-wider">STARRED</span>
+              <span className="text-amber-300 font-extrabold font-orbitron text-xs mt-0.5">{stats.totalStarred}</span>
+            </div>
+            <div className="flex flex-col p-1 rounded-lg bg-black/40 border border-white/5">
+              <span className="text-slate-400 text-[8px] font-mono uppercase tracking-wider">PINNED</span>
+              <span className="text-purple-300 font-extrabold font-orbitron text-xs mt-0.5">{stats.totalPinned}</span>
+            </div>
+          </div>
+
+          {/* Filter Search Input with Instant Clear */}
+          <div className="relative shrink-0">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-cyan-400/60" />
+            <input 
+              type="text"
+              placeholder="Search conversations, tags, transcripts..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-[#031526]/90 border border-cyan-500/30 rounded-xl pl-9 pr-8 py-2 text-xs font-mono text-slate-100 focus:border-cyan-400 focus:outline-none transition-all placeholder:text-slate-500 shadow-inner"
+            />
+            {searchQuery && (
               <button
-                key={f.id}
-                onClick={() => setSelectedFilter(f.id)}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border transition-all whitespace-nowrap shrink-0 ${
-                  active 
-                    ? 'bg-cyan-500/20 border-cyan-400 text-cyan-200 font-bold shadow-[0_0_10px_rgba(0,242,255,0.2)]' 
-                    : 'bg-black/40 border-white/5 text-slate-400 hover:text-slate-200 hover:border-white/20'
-                }`}
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-0.5 rounded-full"
               >
-                <Icon className="w-3 h-3" />
-                <span>{f.label}</span>
+                <X className="w-3.5 h-3.5" />
               </button>
-            );
-          })}
-        </div>
+            )}
+          </div>
 
-        {/* Grouped Session Cards List */}
-        <div className="flex-1 overflow-y-auto custom-scroll space-y-3 pr-1">
-          {(Object.entries(grouped) as [string, ChatSession[]][]).map(([groupName, items]) => {
-            if (items.length === 0) return null;
-            return (
-              <div key={groupName} className="space-y-1.5">
-                <div className="flex items-center justify-between px-1 pt-1">
-                  <h3 className="text-[9px] font-orbitron text-slate-400 tracking-[0.2em] uppercase font-bold flex items-center gap-1.5">
-                    <Clock className="w-2.5 h-2.5 text-cyan-400" />
-                    <span>{groupName}</span>
-                  </h3>
-                  <span className="text-[8.5px] font-mono text-slate-500 bg-white/5 px-1.5 py-0.2 rounded-full">
-                    {items.length}
+          {/* Interactive Category Filter Chips */}
+          <div className="flex items-center gap-1.5 overflow-x-auto custom-scroll pb-1 shrink-0 scrollbar-none">
+            {CATEGORY_FILTERS.map(f => {
+              const active = selectedFilter === f.id;
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => {
+                    playMechanicalClick();
+                    setSelectedFilter(f.id);
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
+                    active
+                      ? 'bg-cyan-500/25 border border-cyan-400 text-cyan-200 shadow-[0_0_12px_rgba(0,242,255,0.3)]'
+                      : 'bg-slate-900/60 border border-white/10 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                  }`}
+                >
+                  <span>{f.label}</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[8.5px] ${active ? 'bg-cyan-400 text-slate-950' : 'bg-slate-800 text-slate-400'}`}>
+                    {f.count}
                   </span>
-                </div>
+                </button>
+              );
+            })}
+          </div>
 
-                {items.map((session) => {
-                  const isActive = currentSession?.session_id === session.session_id;
-                  const cat = getSessionCategory(session);
-                  const catConfig = getCategoryConfig(cat);
-                  const CatIcon = catConfig.icon;
-                  const isFav = isSessionFavorite(session);
-
-                  return (
-                    <div 
-                      key={session.session_id}
-                      onClick={() => onSelectSession(session.session_id)}
-                      onMouseEnter={() => setHoveredSessionId(session.session_id)}
-                      onMouseLeave={() => setHoveredSessionId(null)}
-                      className={`group relative p-3 rounded-xl transition-all duration-300 border cursor-pointer select-none ${
-                        isActive 
-                          ? 'bg-cyan-950/40 border-cyan-400/80 shadow-[0_0_20px_rgba(0,242,255,0.25)] ring-1 ring-cyan-400/50 scale-[1.01]' 
-                          : 'bg-black/40 border-white/5 hover:border-cyan-500/40 hover:bg-white/5'
-                      }`}
-                    >
-                      {/* Active Indicator */}
-                      {isActive && (
-                        <div className="absolute top-2.5 right-2.5 flex items-center gap-1 text-[8.5px] font-mono text-cyan-300 bg-cyan-500/20 px-2 py-0.5 rounded-full border border-cyan-400/40 shadow-[0_0_8px_rgba(0,242,255,0.4)]">
-                          <span className="w-1.5 h-1.5 rounded-full bg-cyan-300 animate-ping" />
-                          <span>ACTIVE</span>
-                        </div>
-                      )}
-
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <div className="flex items-center gap-2 overflow-hidden flex-1">
-                          <div className={`p-1 rounded-md border ${catConfig.color} shrink-0`}>
-                            <CatIcon className="w-3 h-3" />
-                          </div>
-                          
-                          <h4 className={`text-xs font-semibold truncate ${isActive ? 'text-cyan-200 font-bold' : 'text-slate-200'}`}>
-                            {session.title}
-                          </h4>
-                        </div>
-                        
-                        {/* Actions (Star, Pin, Delete) */}
-                        <div className={`flex items-center gap-1 ${isActive ? 'mr-16' : ''}`}>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleToggleFavorite(session.session_id);
-                            }}
-                            className={`p-1 rounded-lg hover:bg-white/10 transition-colors ${isFav ? 'text-amber-400' : 'text-slate-600 hover:text-slate-300'}`}
-                            title={isFav ? "Remove Star" : "Star Favorite"}
-                          >
-                            <Star className={`w-3 h-3 ${isFav ? 'fill-amber-400' : ''}`} />
-                          </button>
-
-                          {onTogglePin && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onTogglePin(session.session_id);
-                              }}
-                              className={`p-1 rounded-lg hover:bg-white/10 transition-colors ${session.isPinned ? 'text-cyan-400' : 'text-slate-600 hover:text-slate-300'}`}
-                              title={session.isPinned ? "Unpin session" : "Pin session"}
-                            >
-                              <Pin className={`w-3 h-3 ${session.isPinned ? 'fill-cyan-400' : ''}`} />
-                            </button>
-                          )}
-
-                          {onDeleteSession && sessions.length > 1 && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onDeleteSession(session.session_id);
-                              }}
-                              className="p-1 rounded-lg hover:bg-red-500/20 text-slate-600 hover:text-red-400 transition-colors"
-                              title="Delete conversation"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      <p className="text-[10.5px] text-slate-300 font-sans leading-snug line-clamp-2 bg-black/40 p-1.5 rounded-lg border border-white/5 my-1.5">
-                        {session.last_message_preview || "Conversation initialized."}
-                      </p>
-
-                      <div className="flex items-center justify-between text-[8.5px] font-mono text-slate-400 pt-1 border-t border-white/5">
-                        <div className="flex items-center gap-2">
-                          <span className="text-cyan-400/90 font-bold uppercase">
-                            {session.mode}
-                          </span>
-                          <span className="text-slate-400">
-                            {session.messages?.length || session.messageCount || 0} msgs
-                          </span>
-                        </div>
-                        <span>{formatLogTime(session.timestamp_last_message)}</span>
-                      </div>
-                    </div>
-                  );
-                })}
+          {/* Grouped Timeline Session Cards (Scrollable Zero-Overflow) */}
+          <div className="flex-1 overflow-y-auto custom-scroll space-y-3 pr-1">
+            {filteredSessions.length === 0 ? (
+              <div className="h-48 flex flex-col items-center justify-center text-slate-500 font-mono text-xs gap-2">
+                <Search className="w-6 h-6 opacity-40 text-cyan-400" />
+                <span>No archives found matching filters.</span>
+                <button
+                  type="button"
+                  onClick={() => { setSearchQuery(''); setSelectedFilter('all'); }}
+                  className="text-cyan-400 underline text-[11px] hover:text-cyan-300 mt-1"
+                >
+                  Clear filters
+                </button>
               </div>
-            );
-          })}
-        </div>
-      </div>
+            ) : (
+              (Object.entries(grouped) as [string, ChatSession[]][]).map(([groupTitle, groupSessions]) => {
+                if (!groupSessions || groupSessions.length === 0) return null;
 
-      {/* RIGHT COLUMN: Full Conversational Stage (USER ↔ JARVIS Only) */}
-      <div className={`flex-1 flex flex-col rounded-2xl border overflow-hidden p-4 relative transition-all duration-300 ${
-        isSlate
-          ? 'bg-zinc-900/80 border-slate-800/80 text-slate-100 shadow-xl'
-          : isMinimal
-            ? 'bg-[#0f172a]/80 border-emerald-500/15 text-slate-100 shadow-xl'
-            : isGold
-              ? 'bg-[#181310]/80 border-amber-500/15 text-amber-100 shadow-xl'
-              : 'bg-[#040a17]/80 border-cyan-500/15 text-slate-100 shadow-[0_0_25px_rgba(0,242,255,0.06)]'
-      }`}>
-        {currentSession ? (
-          <>
-            {/* Conversational Header Bar */}
-            <div className="flex flex-wrap items-center justify-between border-b border-white/10 pb-3 mb-3 shrink-0 gap-2">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2.5 bg-cyan-500/15 border border-cyan-400/40 rounded-xl text-cyan-300 shadow-[0_0_15px_rgba(0,242,255,0.2)]">
-                  <MessageSquare className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-orbitron font-bold text-cyan-300 tracking-wide flex items-center gap-2">
-                    <span>{currentSession.title}</span>
-                    <span className="text-[9px] font-mono px-2.5 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 uppercase">
-                      {currentSession.mode} MODE
+                return (
+                  <div key={groupTitle} className="space-y-1.5">
+                    <div className="flex items-center justify-between text-[10px] font-orbitron font-bold text-cyan-400/80 px-1 pt-1 tracking-wider uppercase">
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                        {groupTitle}
+                      </span>
+                      <span className="text-[9px] font-mono text-slate-500">
+                        {groupSessions.length} {groupSessions.length === 1 ? 'session' : 'sessions'}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      {groupSessions.map((session) => {
+                        const isSelected = activeSessionId === session.session_id;
+                        const isFav = isSessionFavorite(session);
+                        const cat = getSessionCategory(session);
+                        const catConfig = getCategoryConfig(cat);
+                        const IconComponent = catConfig.icon;
+
+                        return (
+                          <div
+                            key={session.session_id}
+                            onClick={() => {
+                              playMechanicalClick();
+                              onSelectSession(session.session_id);
+                            }}
+                            className={`group relative p-2.5 sm:p-3 rounded-xl border transition-all duration-200 cursor-pointer ${
+                              isSelected
+                                ? 'bg-gradient-to-r from-cyan-950/80 to-[#031526]/90 border-cyan-400 text-white shadow-[0_0_20px_rgba(0,242,255,0.25)] ring-1 ring-cyan-400/50'
+                                : 'bg-[#030e1d]/70 hover:bg-[#061830]/80 border-cyan-500/20 hover:border-cyan-400/50 text-slate-300 shadow-sm'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className={`p-1.5 rounded-lg border shrink-0 ${catConfig.color}`}>
+                                  <IconComponent className="w-3.5 h-3.5" />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <h4 className="text-xs font-orbitron font-bold text-slate-100 truncate group-hover:text-cyan-200 transition-colors">
+                                      {session.title}
+                                    </h4>
+                                    {session.isPinned && (
+                                      <Pin className="w-3 h-3 text-purple-400 shrink-0 fill-purple-400" />
+                                    )}
+                                    {isFav && (
+                                      <Star className="w-3 h-3 text-amber-400 shrink-0 fill-amber-400" />
+                                    )}
+                                  </div>
+                                  <p className="text-[10px] text-slate-400 font-mono truncate mt-0.5">
+                                    {session.last_message_preview || 'Transcript recorded.'}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Quick Pin / Star / Delete Actions on Hover */}
+                              <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleToggleFavorite(session.session_id);
+                                  }}
+                                  className={`p-1 rounded-md hover:bg-amber-500/20 transition-all ${
+                                    isFav ? 'text-amber-400' : 'text-slate-500 hover:text-amber-300'
+                                  }`}
+                                  title={isFav ? "Remove Favorite" : "Favorite Session"}
+                                >
+                                  <Star className={`w-3.5 h-3.5 ${isFav ? 'fill-amber-400' : ''}`} />
+                                </button>
+
+                                {onTogglePin && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      playMechanicalClick();
+                                      onTogglePin(session.session_id);
+                                    }}
+                                    className={`p-1 rounded-md hover:bg-purple-500/20 transition-all ${
+                                      session.isPinned ? 'text-purple-400' : 'text-slate-500 hover:text-purple-300'
+                                    }`}
+                                    title={session.isPinned ? "Unpin Session" : "Pin Session"}
+                                  >
+                                    <Pin className={`w-3.5 h-3.5 ${session.isPinned ? 'fill-purple-400' : ''}`} />
+                                  </button>
+                                )}
+
+                                {onDeleteSession && sessions.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      playWhooshSound();
+                                      onDeleteSession(session.session_id);
+                                    }}
+                                    className="p-1 rounded-md hover:bg-red-500/20 text-slate-500 hover:text-red-400 transition-all"
+                                    title="Delete Session"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Card Footer Info */}
+                            <div className="mt-2 flex items-center justify-between text-[9px] font-mono text-slate-400 border-t border-white/5 pt-1.5">
+                              <span className="flex items-center gap-1 text-cyan-400/80">
+                                <Clock className="w-2.5 h-2.5" />
+                                {formatDateCreated(session.timestamp_last_message || session.timestamp_created)}
+                              </span>
+                              <span className="bg-slate-900/80 px-2 py-0.5 rounded border border-white/5 text-slate-300 font-semibold">
+                                {session.messages?.length || session.messageCount || 0} msgs
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Left Column Bottom Status Badge */}
+          <div className="p-2 rounded-xl bg-[#010a17]/90 border border-cyan-500/20 text-[10px] font-mono text-slate-300 flex items-center justify-between shrink-0">
+            <span className="flex items-center gap-1.5 text-cyan-300 font-bold">
+              <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+              ARCHIVE SECURITY: LEVEL 5
+            </span>
+            <span className="text-emerald-400 font-bold">ENCRYPTED</span>
+          </div>
+        </div>
+
+        {/* ======================================================== */}
+        {/* RIGHT COLUMN: Conversational Workspace Stage (8 cols)    */}
+        {/* ======================================================== */}
+        <div className="lg:col-span-8 flex flex-col min-h-0 bg-[#020b18]/80 border border-cyan-500/30 rounded-2xl backdrop-blur-2xl shadow-[0_0_30px_rgba(0,242,255,0.08)] p-3 sm:p-4 space-y-3 overflow-hidden">
+          
+          {currentSession ? (
+            <>
+              {/* Active Conversation Stage Header */}
+              <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-gradient-to-r from-[#031526]/90 via-[#020d1c]/90 to-[#010814]/90 border border-cyan-500/30 shadow-md shrink-0">
+                <div className="space-y-1 min-w-0">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <h3 className="text-sm sm:text-base font-orbitron font-extrabold text-white tracking-wide truncate">
+                      {currentSession.title}
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-cyan-500/20 border border-cyan-400/40 text-cyan-300">
+                      MODE: {currentSession.mode || 'DEVELOPER'}
                     </span>
-                  </h3>
-                  <div className="flex items-center gap-2 text-[10px] font-mono text-slate-400 mt-0.5">
-                    <span>ID: {currentSession.session_id}</span>
-                    <span>•</span>
+                    <span className="text-[10px] font-mono text-slate-400">
+                      ID: {currentSession.session_id}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3 text-[10px] font-mono text-slate-400 flex-wrap">
                     <span>Created: {formatDateCreated(currentSession.timestamp_created)}</span>
                     <span>•</span>
-                    <span className="text-cyan-300">{conversationMessages.length} Conversational Messages</span>
+                    <span className="text-cyan-300">{conversationMessages.length} exchanges</span>
+                    <span>•</span>
+                    <span className="text-purple-300">{totalWords} words ({estimatedReadingTime} min read)</span>
                   </div>
                 </div>
-              </div>
 
-              {/* Action Buttons: Copy Transcript & Multi-Format Export */}
-              <div className="flex items-center gap-2 relative">
-                <button
-                  onClick={handleCopyTranscript}
-                  disabled={conversationMessages.length === 0}
-                  className="group flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/15 text-cyan-300 hover:bg-cyan-500/25 text-xs font-mono font-bold transition-all active:scale-95 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Copy Full Conversation Transcript"
-                >
-                  {copiedId === currentSession.session_id ? (
-                    <Check className="w-3.5 h-3.5 text-emerald-400 animate-bounce" />
-                  ) : (
-                    <Copy className="w-3.5 h-3.5 group-hover:rotate-12 transition-transform" />
-                  )}
-                  <span>{copiedId === currentSession.session_id ? 'COPIED!' : 'COPY TRANSCRIPT'}</span>
-                </button>
-
-                <div className="relative">
+                {/* Right Top Action Bar */}
+                <div className="flex items-center gap-2 shrink-0">
+                  {/* Copy Full Transcript Button */}
                   <button
-                    onClick={() => setShowExportMenu(!showExportMenu)}
+                    type="button"
+                    onClick={handleCopyTranscript}
                     disabled={conversationMessages.length === 0}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-700 bg-slate-800/80 text-slate-200 hover:bg-slate-700 text-xs font-mono font-bold transition-all active:scale-95 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 text-xs font-mono font-bold transition-all active:scale-95 disabled:opacity-50 cursor-pointer shadow-sm"
                   >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>EXPORT</span>
+                    {copiedId === currentSession.session_id ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-400 animate-in zoom-in" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5" />
+                    )}
+                    <span>{copiedId === currentSession.session_id ? 'COPIED!' : 'COPY TRANSCRIPT'}</span>
                   </button>
 
                   {/* Multi-Format Export Dropdown */}
-                  {showExportMenu && (
-                    <div className="absolute right-0 top-full mt-1.5 w-52 p-2 bg-slate-900 border border-cyan-500/40 rounded-xl shadow-2xl z-50 flex flex-col gap-1 text-xs font-mono backdrop-blur-xl animate-in fade-in duration-150">
-                      <button onClick={() => exportSession('json')} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-cyan-500/20 text-slate-200 hover:text-cyan-300 text-left">
-                        <FileCode className="w-3.5 h-3.5 text-amber-400" /> Export JSON (.json)
-                      </button>
-                      <button onClick={() => exportSession('md')} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-cyan-500/20 text-slate-200 hover:text-cyan-300 text-left">
-                        <FileText className="w-3.5 h-3.5 text-blue-400" /> Export Markdown (.md)
-                      </button>
-                      <button onClick={() => exportSession('html')} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-cyan-500/20 text-slate-200 hover:text-cyan-300 text-left">
-                        <Globe className="w-3.5 h-3.5 text-emerald-400" /> Export HTML (.html)
-                      </button>
-                      <button onClick={() => exportSession('txt')} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-cyan-500/20 text-slate-200 hover:text-cyan-300 text-left">
-                        <Tag className="w-3.5 h-3.5 text-slate-400" /> Plain Text (.txt)
-                      </button>
-                      <button onClick={handlePrintPDF} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-cyan-500/20 text-slate-200 hover:text-cyan-300 text-left border-t border-white/10 pt-1.5">
-                        <Printer className="w-3.5 h-3.5 text-purple-400" /> Print / PDF View
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {onClose && (
-                  <button
-                    onClick={onClose}
-                    className="p-1.5 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-white transition-all ml-1"
-                    title="Close Archives"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Conversation Stats Subheader */}
-            <div className="mb-3 p-2.5 rounded-xl bg-cyan-950/20 border border-cyan-500/20 text-xs font-sans text-slate-300 flex items-center justify-between gap-2 shrink-0">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-cyan-400 shrink-0 animate-pulse" />
-                <span className="text-[11px] font-mono text-cyan-200">
-                  Clean User ↔ JARVIS Communication History (Zero System / Diagnostic Clutter)
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-[9.5px] font-mono text-cyan-400/80">
-                <span className="bg-cyan-500/10 px-2 py-0.5 rounded-lg border border-cyan-500/20">
-                  📝 {totalWords} words
-                </span>
-                <span className="bg-cyan-500/10 px-2 py-0.5 rounded-lg border border-cyan-500/20">
-                  ⏱ {estimatedReadingTime} min read
-                </span>
-              </div>
-            </div>
-
-            {/* Conversational Stream Area (Strictly User ↔ JARVIS Messages) */}
-            <div className="flex-1 overflow-y-auto custom-scroll space-y-4 pr-2">
-              {conversationMessages.length === 0 ? (
-                <div className="h-full min-h-[300px] flex flex-col items-center justify-center text-slate-500 font-mono text-xs gap-3">
-                  <div className="p-4 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
-                    <MessageSquare className="w-8 h-8 opacity-60 animate-pulse" />
-                  </div>
-                  <span className="text-slate-400 font-bold">No conversation exchanges in this session yet.</span>
-                  <span className="text-[11px] text-slate-500">Send a text command or speak with JARVIS to record messages.</span>
-                </div>
-              ) : (
-                conversationMessages.map((msg, idx) => {
-                  const isUser = msg.role === 'USER';
-                  const isJarvis = msg.role === 'JARVIS';
-
-                  return (
-                    <div 
-                      key={msg.messageId || idx}
-                      className={`flex flex-col transition-all duration-200 ${
-                        isUser ? 'items-end pl-8 sm:pl-16' : 'items-start pr-8 sm:pr-16'
-                      }`}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playMechanicalClick();
+                        setShowExportMenu(!showExportMenu);
+                      }}
+                      disabled={conversationMessages.length === 0}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-blue-500/40 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 text-xs font-mono font-bold transition-all active:scale-95 shadow-sm disabled:opacity-50 cursor-pointer"
                     >
-                      {/* Message Bubble Card */}
+                      <Download className="w-3.5 h-3.5" />
+                      <span>EXPORT</span>
+                    </button>
+
+                    {showExportMenu && (
+                      <div className="absolute right-0 top-full mt-2 w-52 p-2 bg-[#020b18] border border-cyan-500/40 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.9),0_0_20px_rgba(0,242,255,0.2)] z-50 flex flex-col gap-1 text-xs font-mono backdrop-blur-2xl animate-in fade-in duration-150">
+                        <button onClick={() => exportSession('json')} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-cyan-500/20 text-slate-200 hover:text-cyan-300 text-left transition-all">
+                          <FileCode className="w-3.5 h-3.5 text-amber-400" /> Export JSON (.json)
+                        </button>
+                        <button onClick={() => exportSession('md')} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-cyan-500/20 text-slate-200 hover:text-cyan-300 text-left transition-all">
+                          <FileText className="w-3.5 h-3.5 text-blue-400" /> Export Markdown (.md)
+                        </button>
+                        <button onClick={() => exportSession('html')} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-cyan-500/20 text-slate-200 hover:text-cyan-300 text-left transition-all">
+                          <Globe className="w-3.5 h-3.5 text-emerald-400" /> Export HTML (.html)
+                        </button>
+                        <button onClick={() => exportSession('txt')} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-cyan-500/20 text-slate-200 hover:text-cyan-300 text-left transition-all">
+                          <Tag className="w-3.5 h-3.5 text-slate-400" /> Plain Text (.txt)
+                        </button>
+                        <button onClick={handlePrintPDF} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-cyan-500/20 text-slate-200 hover:text-cyan-300 text-left border-t border-white/10 pt-1.5 transition-all">
+                          <Printer className="w-3.5 h-3.5 text-purple-400" /> Print / PDF View
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Memory Tags Bar */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 shrink-0 scrollbar-none">
+                <span className="text-[10px] font-mono text-cyan-400 font-bold flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-cyan-400 animate-pulse" />
+                  TAGS:
+                </span>
+                {memoryTags.map((tag, i) => (
+                  <span key={i} className="px-2 py-0.5 rounded-md bg-cyan-950/40 border border-cyan-500/20 text-cyan-300 text-[10px] font-mono whitespace-nowrap">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+
+              {/* Conversational Stream Area (User ↔ JARVIS) */}
+              <div className="flex-1 overflow-y-auto custom-scroll space-y-3.5 pr-2">
+                {conversationMessages.length === 0 ? (
+                  <div className="h-full min-h-[300px] flex flex-col items-center justify-center text-slate-500 font-mono text-xs gap-3">
+                    <div className="p-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 shadow-[0_0_20px_rgba(0,242,255,0.1)]">
+                      <MessageSquare className="w-8 h-8 opacity-60 animate-pulse" />
+                    </div>
+                    <span className="text-slate-300 font-bold font-orbitron">NO CONVERSATION LOGS IN THIS SESSION</span>
+                    <span className="text-[11px] text-slate-500">Send text prompts or activate neural voice to record exchanges.</span>
+                  </div>
+                ) : (
+                  conversationMessages.map((msg, idx) => {
+                    const isUser = msg.role === 'USER';
+
+                    return (
                       <div 
-                        className={`w-full max-w-4xl p-4 rounded-2xl border relative group/msg transition-all duration-300 ${
-                          isUser
-                            ? 'bg-[#08152c]/90 border-blue-500/40 text-blue-50 shadow-[0_0_20px_rgba(59,130,246,0.1)] rounded-tr-sm'
-                            : 'bg-[#040f21]/90 border-cyan-500/40 text-cyan-50 shadow-[0_0_25px_rgba(0,242,255,0.12)] rounded-tl-sm'
+                        key={msg.messageId || idx}
+                        className={`flex flex-col transition-all duration-200 ${
+                          isUser ? 'items-end pl-6 sm:pl-16' : 'items-start pr-6 sm:pr-16'
                         }`}
                       >
-                        {/* Card Header with Role Badge, Time & Copy Action */}
-                        <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-white/10 text-[10px] font-orbitron font-bold">
-                          <div className="flex items-center gap-2">
-                            {isUser ? (
-                              <span className="px-2.5 py-0.5 rounded-full border border-blue-400/50 bg-blue-500/20 text-blue-300 uppercase tracking-wider flex items-center gap-1.5 shadow-[0_0_8px_rgba(59,130,246,0.3)]">
-                                <User className="w-3 h-3 text-blue-400" />
-                                <span>USER</span>
+                        {/* Message Bubble Card with Atmospheric Sci-Fi Styling */}
+                        <div 
+                          className={`w-full p-4 rounded-2xl border relative group/msg transition-all duration-300 ${
+                            isUser
+                              ? 'bg-gradient-to-r from-[#07152e]/95 to-[#040e20]/95 border-blue-500/40 text-blue-50 shadow-[0_0_20px_rgba(59,130,246,0.12)] rounded-tr-sm'
+                              : 'bg-gradient-to-r from-[#031526]/95 via-[#020e1f]/95 to-[#010814]/95 border-cyan-500/40 text-cyan-50 shadow-[0_0_25px_rgba(0,242,255,0.15)] rounded-tl-sm'
+                          }`}
+                        >
+                          {/* Card Header with Role Badge, Time & Copy Action */}
+                          <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-white/10 text-[10px] font-orbitron font-bold">
+                            <div className="flex items-center gap-2">
+                              {isUser ? (
+                                <span className="px-2.5 py-0.5 rounded-full border border-blue-400/50 bg-blue-500/20 text-blue-300 uppercase tracking-wider flex items-center gap-1.5 shadow-[0_0_8px_rgba(59,130,246,0.3)]">
+                                  <User className="w-3 h-3 text-blue-400" />
+                                  <span>OPERATOR</span>
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-0.5 rounded-full border border-cyan-400/50 bg-cyan-500/20 text-cyan-300 uppercase tracking-wider flex items-center gap-1.5 shadow-[0_0_10px_rgba(0,242,255,0.3)]">
+                                  <Bot className="w-3 h-3 text-cyan-400" />
+                                  <span>J.A.R.V.I.S.</span>
+                                </span>
+                              )}
+                              <span className="font-mono text-slate-400 text-[9.5px]">
+                                {formatLogTime(msg.timestamp)}
                               </span>
-                            ) : (
-                              <span className="px-2.5 py-0.5 rounded-full border border-cyan-400/50 bg-cyan-500/20 text-cyan-300 uppercase tracking-wider flex items-center gap-1.5 shadow-[0_0_10px_rgba(0,242,255,0.3)]">
-                                <Bot className="w-3 h-3 text-cyan-400" />
-                                <span>JARVIS</span>
-                              </span>
-                            )}
-                            <span className="font-mono text-slate-400 text-[9.5px]">
-                              {formatLogTime(msg.timestamp)}
-                            </span>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleCopySingleMessage(msg)}
+                              className="opacity-70 group-hover/msg:opacity-100 p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-cyan-300 transition-all cursor-pointer"
+                              title="Copy message text"
+                            >
+                              {copiedMsgId === msg.messageId ? (
+                                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
+                            </button>
                           </div>
 
-                          <button
-                            onClick={() => handleCopySingleMessage(msg)}
-                            className="opacity-60 group-hover/msg:opacity-100 p-1 rounded-md hover:bg-white/10 text-slate-400 hover:text-cyan-300 transition-all"
-                            title="Copy message text"
-                          >
-                            {copiedMsgId === msg.messageId ? (
-                              <Check className="w-3.5 h-3.5 text-emerald-400" />
-                            ) : (
-                              <Copy className="w-3.5 h-3.5" />
-                            )}
-                          </button>
-                        </div>
-
-                        {/* Content text */}
-                        <div className="text-xs sm:text-sm font-sans leading-relaxed whitespace-pre-wrap break-words text-slate-100 selection:bg-cyan-500 selection:text-black">
-                          {msg.content}
+                          {/* Content text with clean typography and readability */}
+                          <div className="text-xs sm:text-sm font-sans leading-relaxed whitespace-pre-wrap break-words text-slate-100 selection:bg-cyan-500 selection:text-black">
+                            {msg.content}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })
-              )}
-              <div ref={messagesEndRef} />
+                    );
+                  })
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+            </>
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center text-slate-500 font-mono text-xs">
+              <span>Select an archive session from the left column to inspect conversation history.</span>
             </div>
-          </>
-        ) : (
-          <div className="h-full flex flex-col items-center justify-center text-slate-500 font-mono text-xs">
-            <span>Select an archive session from the left column to inspect conversation history.</span>
-          </div>
-        )}
+          )}
+        </div>
+      </div>
+
+      {/* ======================================================== */}
+      {/* STICKY BOTTOM ACTION BAR                                 */}
+      {/* ======================================================== */}
+      <div 
+        onClick={(e) => e.stopPropagation()}
+        className="w-full flex flex-wrap items-center justify-between gap-2.5 py-2.5 px-4 sm:px-6 rounded-2xl bg-[#030e1d]/90 border border-cyan-500/35 shadow-[0_8px_30px_rgba(0,0,0,0.8),0_0_20px_rgba(0,242,255,0.12)] mt-2 relative z-50 shrink-0"
+      >
+        <div className="flex items-center gap-2 text-xs text-slate-300 font-mono">
+          <Sparkles className="w-4 h-4 text-cyan-400 animate-pulse" />
+          <span className="hidden sm:inline text-cyan-300 font-bold">JARVIS ARCHIVES:</span>
+          <span>NEURAL SYNCHRONIZED // 100% OPERATIONAL</span>
+        </div>
+
+        <div className="flex items-center gap-2 sm:gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              playDigitalPingSound();
+              onNewChat();
+            }}
+            className="px-4 py-1.5 bg-gradient-to-r from-cyan-500 via-blue-500 to-cyan-400 hover:from-cyan-400 hover:to-blue-400 text-slate-950 rounded-xl text-xs font-orbitron font-black flex items-center gap-2 shadow-[0_0_25px_rgba(0,242,255,0.5)] transition-all cursor-pointer hover:scale-105 active:scale-95"
+          >
+            <Plus className="w-3.5 h-3.5 text-slate-950" />
+            <span>START NEW CONVERSATION</span>
+          </button>
+        </div>
       </div>
 
       {/* SESSION ANALYTICS MODAL */}
       {showAnalyticsModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-cyan-500/40 rounded-2xl w-full max-w-xl p-5 space-y-4 text-slate-100 font-sans shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <div className="flex items-center gap-2 text-cyan-300 font-orbitron font-bold text-sm">
-                <BarChart2 className="w-5 h-5" />
+        <div 
+          onClick={() => setShowAnalyticsModal(false)}
+          className="fixed inset-0 bg-black/85 backdrop-blur-xl z-[100000] flex items-center justify-center p-4"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[#020b18] border border-cyan-500/50 rounded-2xl w-full max-w-xl p-5 space-y-4 text-slate-100 font-sans shadow-[0_0_50px_rgba(0,242,255,0.25)] animate-in zoom-in-95 duration-200"
+          >
+            <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
+              <div className="flex items-center gap-2.5 text-cyan-300 font-orbitron font-bold text-sm">
+                <BarChart2 className="w-5 h-5 text-cyan-400" />
                 <span>CONVERSATION ANALYTICS & TOKENS</span>
               </div>
-              <button onClick={() => setShowAnalyticsModal(false)} className="p-1 rounded-lg hover:bg-white/10 text-slate-400">
+              <button 
+                onClick={() => setShowAnalyticsModal(false)} 
+                className="p-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-              <div className="p-3 bg-black/40 rounded-xl border border-white/5">
-                <div className="text-slate-400 text-[10px] font-mono">TOTAL EXCHANGES</div>
+              <div className="p-3 bg-slate-950/80 rounded-xl border border-cyan-500/20">
+                <div className="text-slate-400 text-[10px] font-mono uppercase">EXCHANGES</div>
                 <div className="text-cyan-300 font-orbitron font-bold text-base mt-1">{conversationMessages.length} msgs</div>
               </div>
-              <div className="p-3 bg-black/40 rounded-xl border border-white/5">
-                <div className="text-slate-400 text-[10px] font-mono">TOTAL WORDS</div>
+              <div className="p-3 bg-slate-950/80 rounded-xl border border-purple-500/20">
+                <div className="text-slate-400 text-[10px] font-mono uppercase">TOTAL WORDS</div>
                 <div className="text-purple-300 font-orbitron font-bold text-base mt-1">{totalWords.toLocaleString()}</div>
               </div>
-              <div className="p-3 bg-black/40 rounded-xl border border-white/5">
-                <div className="text-slate-400 text-[10px] font-mono">AI MODEL</div>
-                <div className="text-emerald-300 font-orbitron font-bold text-xs mt-1 truncate">{currentSession?.model || 'Gemini 2.5'}</div>
+              <div className="p-3 bg-slate-950/80 rounded-xl border border-emerald-500/20">
+                <div className="text-slate-400 text-[10px] font-mono uppercase">AI MODEL</div>
+                <div className="text-emerald-300 font-orbitron font-bold text-xs mt-1 truncate">{currentSession?.model || 'Gemini Flash'}</div>
               </div>
-              <div className="p-3 bg-black/40 rounded-xl border border-white/5">
-                <div className="text-slate-400 text-[10px] font-mono">SYSTEM MODE</div>
-                <div className="text-amber-300 font-orbitron font-bold text-xs mt-1">{currentSession?.mode || 'CHILL'}</div>
+              <div className="p-3 bg-slate-950/80 rounded-xl border border-amber-500/20">
+                <div className="text-slate-400 text-[10px] font-mono uppercase">MODE</div>
+                <div className="text-amber-300 font-orbitron font-bold text-xs mt-1">{currentSession?.mode || 'DEVELOPER'}</div>
               </div>
             </div>
 
-            <button onClick={() => setShowAnalyticsModal(false)} className="w-full py-2 bg-cyan-500/20 border border-cyan-400 text-cyan-300 rounded-xl font-orbitron font-bold text-xs hover:bg-cyan-500/30">
+            <button 
+              onClick={() => setShowAnalyticsModal(false)} 
+              className="w-full py-2.5 bg-cyan-500/20 border border-cyan-400 text-cyan-300 rounded-xl font-orbitron font-bold text-xs hover:bg-cyan-500/30 transition-all cursor-pointer"
+            >
               CLOSE ANALYTICS
             </button>
           </div>
@@ -888,43 +1041,52 @@ export const ChatHistoryPanel: React.FC<ChatHistoryPanelProps> = ({
 
       {/* NEURAL RELATIONSHIP GRAPH MODAL */}
       {showNeuralGraphModal && (
-        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-cyan-500/50 rounded-2xl w-full max-w-2xl h-[450px] p-5 flex flex-col space-y-3 text-slate-100 font-sans shadow-2xl relative">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <div className="flex items-center gap-2 text-cyan-300 font-orbitron font-bold text-sm">
-                <Network className="w-5 h-5 text-purple-400 animate-spin" />
+        <div 
+          onClick={() => setShowNeuralGraphModal(false)}
+          className="fixed inset-0 bg-black/85 backdrop-blur-xl z-[100000] flex items-center justify-center p-4"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[#020b18] border border-cyan-500/50 rounded-2xl w-full max-w-2xl h-[450px] p-5 flex flex-col space-y-3 text-slate-100 font-sans shadow-[0_0_50px_rgba(0,242,255,0.25)] relative animate-in zoom-in-95 duration-200"
+          >
+            <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
+              <div className="flex items-center gap-2.5 text-cyan-300 font-orbitron font-bold text-sm">
+                <Network className="w-5 h-5 text-purple-400 animate-pulse" />
                 <span>CONVERSATION KNOWLEDGE GRAPH</span>
               </div>
-              <button onClick={() => setShowNeuralGraphModal(false)} className="p-1 rounded-lg hover:bg-white/10 text-slate-400">
+              <button 
+                onClick={() => setShowNeuralGraphModal(false)} 
+                className="p-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="flex-1 bg-black/60 border border-white/10 rounded-xl relative overflow-hidden flex items-center justify-center p-4">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,242,255,0.08)_0%,transparent_70%)] pointer-events-none" />
+            <div className="flex-1 bg-black/70 border border-cyan-500/20 rounded-xl relative overflow-hidden flex items-center justify-center p-4">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,242,255,0.12)_0%,transparent_70%)] pointer-events-none" />
               
               <div className="relative w-full h-full flex items-center justify-center">
-                <div className="absolute p-3 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 font-orbitron font-bold text-xs shadow-[0_0_20px_rgba(0,242,255,0.4)] animate-pulse">
+                <div className="absolute p-3.5 rounded-full bg-cyan-500/20 border-2 border-cyan-400 text-cyan-300 font-orbitron font-bold text-xs shadow-[0_0_25px_rgba(0,242,255,0.5)] animate-pulse">
                   JARVIS CONVERSATION CORE
                 </div>
 
-                <div className="absolute top-8 left-12 p-2 rounded-xl bg-purple-500/20 border border-purple-400 text-purple-300 text-[10px] font-mono">
-                  👤 User Directives
+                <div className="absolute top-6 left-10 p-2 rounded-xl bg-purple-500/20 border border-purple-400 text-purple-300 text-[10px] font-mono shadow-md">
+                  👤 Operator Prompts
                 </div>
 
-                <div className="absolute bottom-10 left-16 p-2 rounded-xl bg-emerald-500/20 border border-emerald-400 text-emerald-300 text-[10px] font-mono">
-                  🤖 JARVIS Responses
+                <div className="absolute bottom-8 left-12 p-2 rounded-xl bg-emerald-500/20 border border-emerald-400 text-emerald-300 text-[10px] font-mono shadow-md">
+                  🤖 JARVIS Intelligence
                 </div>
 
-                <div className="absolute top-10 right-14 p-2 rounded-xl bg-amber-500/20 border border-amber-400 text-amber-300 text-[10px] font-mono">
-                  🎙️ Voice Interactions
+                <div className="absolute top-8 right-10 p-2 rounded-xl bg-amber-500/20 border border-amber-400 text-amber-300 text-[10px] font-mono shadow-md">
+                  🎙️ Voice Persona
                 </div>
 
-                <div className="absolute bottom-8 right-12 p-2 rounded-xl bg-blue-500/20 border border-blue-400 text-blue-300 text-[10px] font-mono">
-                  🧠 Quantum Memory Sync
+                <div className="absolute bottom-6 right-10 p-2 rounded-xl bg-blue-500/20 border border-blue-400 text-blue-300 text-[10px] font-mono shadow-md">
+                  🧠 Quantum Memory Graph
                 </div>
 
-                <svg className="absolute inset-0 w-full h-full pointer-events-none stroke-cyan-500/30 stroke-1">
+                <svg className="absolute inset-0 w-full h-full pointer-events-none stroke-cyan-500/40 stroke-1">
                   <line x1="50%" y1="50%" x2="20%" y2="20%" strokeDasharray="4 4" />
                   <line x1="50%" y1="50%" x2="25%" y2="80%" strokeDasharray="4 4" />
                   <line x1="50%" y1="50%" x2="80%" y2="25%" strokeDasharray="4 4" />
@@ -935,7 +1097,10 @@ export const ChatHistoryPanel: React.FC<ChatHistoryPanelProps> = ({
 
             <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 px-1">
               <span>Conversational Nodes: {conversationMessages.length} | Synapses Active</span>
-              <button onClick={() => setShowNeuralGraphModal(false)} className="px-3 py-1 bg-cyan-500/20 border border-cyan-400 text-cyan-300 rounded-lg font-orbitron font-bold">
+              <button 
+                onClick={() => setShowNeuralGraphModal(false)} 
+                className="px-3.5 py-1 bg-cyan-500/20 border border-cyan-400 text-cyan-300 rounded-lg font-orbitron font-bold text-xs hover:bg-cyan-500/30 transition-all cursor-pointer"
+              >
                 CLOSE GRAPH
               </button>
             </div>

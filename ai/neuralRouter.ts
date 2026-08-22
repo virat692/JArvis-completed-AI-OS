@@ -1,67 +1,67 @@
 import { AIModelRoute } from '../types';
 import { eventBus } from '../services/eventBus';
 
-const STORAGE_ROUTES_KEY = 'jarvis_neural_model_routes';
+const STORAGE_ROUTES_KEY = 'jarvis_neural_model_routes_v3';
 
 const DEFAULT_ROUTES: AIModelRoute[] = [
   {
-    id: 'nvidia_nemotron_4_340b',
-    name: 'NVIDIA Nemotron 4 340B (Ultra Reasoning Backend)',
-    provider: 'nemotron',
-    contextLimit: '128K Tokens',
-    latencyScore: 'HIGH_REASONING',
-    costPer1kTokens: '$0.00040',
-    recommendedFor: ['Deep Reasoning', 'Code Architecture', 'Logic Auditing', 'Multi-Step Planning'],
-    active: true
-  },
-  {
     id: 'gemini_3_6_flash',
-    name: 'Gemini 3.6 Flash (Native Core)',
+    name: 'Gemini 3.6 Flash (Primary Native Core)',
     provider: 'gemini',
     contextLimit: '1.0M Tokens',
     latencyScore: 'ULTRA_FAST',
     costPer1kTokens: '$0.000075',
-    recommendedFor: ['Real-time Chat', 'Voice Synthesis', 'Fast Tool Calls'],
+    recommendedFor: ['Real-time Chat', 'Voice Synthesis', 'Fast Tool Calls', 'Multimodal Vision'],
     active: true
   },
   {
-    id: 'gemini_3_1_pro',
-    name: 'Gemini 3.1 Pro (Deep Reasoning)',
+    id: 'gemini_2_5_pro',
+    name: 'Gemini 2.5 Pro (Deep Architecture & Reasoning)',
     provider: 'gemini',
     contextLimit: '2.0M Tokens',
     latencyScore: 'HIGH_REASONING',
     costPer1kTokens: '$0.00125',
-    recommendedFor: ['Complex Architecture', 'System Refactoring', 'Knowledge Graph Search'],
+    recommendedFor: ['Complex Architecture', 'System Refactoring', 'Deep Factual Synthesis'],
     active: true
   },
   {
-    id: 'deepseek_r1_openrouter',
-    name: 'DeepSeek R1 (OpenRouter Reasoning)',
-    provider: 'openrouter',
+    id: 'nvidia_nemotron_4_340b',
+    name: 'NVIDIA Nemotron 4 340B (Dedicated Reasoning Backend)',
+    provider: 'nemotron',
     contextLimit: '128K Tokens',
     latencyScore: 'HIGH_REASONING',
-    costPer1kTokens: '$0.00055',
-    recommendedFor: ['Mathematical Proofs', 'Logic Auditing', 'Code Verification'],
+    costPer1kTokens: '$0.00040',
+    recommendedFor: ['Multi-Step Logic', 'Code Architecture', 'Logic Auditing', 'Deep Math Proofs'],
     active: true
   },
   {
-    id: 'anthropic_claude_3_5',
-    name: 'Claude 3.5 Sonnet (OpenRouter)',
+    id: 'openrouter_gemini_flash_lite',
+    name: 'Gemini 2.0 Flash Lite (OpenRouter Failover)',
     provider: 'openrouter',
-    contextLimit: '200K Tokens',
-    latencyScore: 'BALANCED',
-    costPer1kTokens: '$0.00300',
-    recommendedFor: ['Refined Synthesis', 'Creative System Prompting', 'UI Design Generation'],
-    active: false
+    contextLimit: '1.0M Tokens',
+    latencyScore: 'ULTRA_FAST',
+    costPer1kTokens: '$0.000075',
+    recommendedFor: ['Automated Failover', 'Zero-Downtime Backup', 'Quota Recovery'],
+    active: true
   },
   {
-    id: 'meta_llama_3_3',
+    id: 'openrouter_llama_3_3',
     name: 'Llama 3.3 70B Instruct (OpenRouter)',
     provider: 'openrouter',
     contextLimit: '128K Tokens',
     latencyScore: 'ULTRA_FAST',
     costPer1kTokens: '$0.00012',
     recommendedFor: ['General Q&A', 'Light Task Dispatch', 'Fast Formatting'],
+    active: false
+  },
+  {
+    id: 'openrouter_qwen_2_5',
+    name: 'Qwen 2.5 72B Instruct (OpenRouter)',
+    provider: 'openrouter',
+    contextLimit: '128K Tokens',
+    latencyScore: 'BALANCED',
+    costPer1kTokens: '$0.00035',
+    recommendedFor: ['Code Generation Backup', 'Algorithm Translation'],
     active: false
   }
 ];

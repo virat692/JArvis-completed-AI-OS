@@ -8,6 +8,7 @@ import {
   NemotronTaskRequest,
   NemotronTaskResult
 } from '../interfaces/AIProvider';
+import { credentialManager } from '../services/credentialManager';
 
 export class NemotronProvider implements AIProvider {
   public id = 'nemotron';
@@ -18,11 +19,23 @@ export class NemotronProvider implements AIProvider {
   private defaultModel: string = 'nvidia/nemotron-4-340b-instruct';
 
   constructor() {
-    this.apiKey = process.env.NEMOTRON_API_KEY || process.env.OPENROUTER_API_KEY || '';
+    this.refreshKey();
+  }
+
+  private refreshKey() {
+    this.apiKey = credentialManager.getKey('nemotron') || credentialManager.getKey('openrouter') || process.env.NEMOTRON_API_KEY || process.env.OPENROUTER_API_KEY || '';
+  }
+
+  public setApiKey(key: string): void {
+    this.apiKey = key;
+  }
+
+  public setModel(model: string): void {
+    this.defaultModel = model;
   }
 
   public async initialize(): Promise<void> {
-    this.apiKey = process.env.NEMOTRON_API_KEY || process.env.OPENROUTER_API_KEY || '';
+    this.refreshKey();
   }
 
   public getModelInfo(): ProviderModelInfo {
