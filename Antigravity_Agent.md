@@ -151,14 +151,14 @@ To run JARVIS with **Full Entire PC Control** on your local machine:
 
 1. **Provider Manager (`/services/AIProviderManager.ts`):** Unified orchestrator that manages provider instances, tracks model health, handles fallback switching, and records token/latency telemetry.
 2. **Standardized Interface (`/interfaces/AIProvider.ts`):** Enforces a strict common interface (`generate`, `stream`, `chat`, `vision`, `healthCheck`, `estimateTokens`).
-3. **Intelligent Routing (`/config/providers.json`):** Dynamic task routing based on cognitive load:
-   - Reasoning & Math → NVIDIA Nemotron Ultra / DeepSeek R1
-   - Vision & Multimodal → Google Gemini
-   - Architectural Research → Anthropic Claude
-   - Structured Tools & Function Execution → OpenAI
-   - Offline / Air-Gapped → Local Ollama
-4. **Health Monitoring & Auto-Failover:** Automatic health pings every 60s; if primary provider pings fail or rate-limit, fallback provider is invoked seamlessly.
-5. **Secure API Key Management:** Keys read exclusively from environment variables (`GEMINI_API_KEY`, `NEMOTRON_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `DEEPSEEK_API_KEY`, `LOCAL_LLM_URL`).
+3. **Intelligent Routing (`/config/providers.json`):** Dynamic task routing based on cognitive load according to JARVIS Master Specification:
+   - Primary Conversational Brain, Vision & Multimodal → Google Gemini
+   - Specialized Deep Reasoning & Architecture → NVIDIA Nemotron Ultra
+   - Zero-Downtime Failover & Backup → OpenRouter
+   - Deep Research & Semantic Web Retrieval → Exa & Tavily
+   - Meteorological Intelligence → OpenWeather API
+4. **Health Monitoring & Auto-Failover:** Automatic health pings; if primary provider pings fail or rate-limit, fallback provider is invoked seamlessly.
+5. **Secure API Key Management:** Keys read exclusively from environment variables or Credential Manager (`GEMINI_API_KEY`, `NEMOTRON_API_KEY`, `OPENROUTER_API_KEY`, `EXA_API_KEY`, `TAVILY_API_KEY`, `OPENWEATHER_API_KEY`, `NVIDIA_OCR_API_KEY`). Zero secret leakage into UI, telemetry or logs.
 
 ---
 

@@ -162,18 +162,23 @@ When information is complex, structured, or code-heavy, JARVIS projects the data
   ): boolean {
     const result = ContentClassifier.classify(prompt, responseText, options);
 
-    if (result.shouldOpenWorkspace) {
-      this.activePayload = result.payload;
-      this.currentMode = result.payload.primaryMode;
+    // Keep payload updated for manual user inspection via WORKSPACE button, but do not automatically pop up a modal card over the HUD core
+    this.activePayload = result.payload;
+    this.currentMode = result.payload.primaryMode;
+
+    const isExplicitUserOpen = options?.hasVisionFrame === false && (
+      prompt.toLowerCase().includes('open workspace') ||
+      prompt.toLowerCase().includes('workspace mein dikhao') ||
+      prompt.toLowerCase().includes('workspace me dikhao') ||
+      prompt.toLowerCase().includes('show in workspace') ||
+      prompt.toLowerCase().includes('open in workspace')
+    );
+
+    if (isExplicitUserOpen) {
       this.isOpen = true;
-      // Automatically save genuine presented workspace to persistent history
       workspaceHistoryService.addEntry(result.payload);
       this.notify();
       return true;
-    } else {
-      // Keep payload updated silently for manual user inspection without opening workspace
-      this.activePayload = result.payload;
-      this.currentMode = result.payload.primaryMode;
     }
 
     return false;

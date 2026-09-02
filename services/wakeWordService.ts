@@ -10,6 +10,8 @@ class WakeWordService {
   private callbacks: Set<WakeWordCallback> = new Set();
   private restartTimeout: any = null;
   private isTemporarilyPaused = false;
+  private lastTriggerTime = 0;
+  private readonly TRIGGER_COOLDOWN_MS = 3500;
 
   constructor() {
     this.init();
@@ -33,6 +35,11 @@ class WakeWordService {
       this.recognition.onresult = (event: any) => {
         if (!this.isEnabled || this.isTemporarilyPaused) return;
 
+        const now = Date.now();
+        if (now - this.lastTriggerTime < this.TRIGGER_COOLDOWN_MS) {
+          return;
+        }
+
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           const transcript = event.results[i][0]?.transcript?.trim().toLowerCase() || '';
           
@@ -45,6 +52,8 @@ class WakeWordService {
             transcript.includes('listen jarvis') ||
             transcript.includes('sun jarvis')
           ) {
+            this.lastTriggerTime = Date.now();
+            console.log(`[VOICE][STT] Wake word detected: "${transcript}" (cooldown triggered)`);
             playWakeChimeSound();
             this.notify(transcript);
             break;

@@ -58,6 +58,7 @@ interface CinematicUserWorkspaceProps {
   theme: 'cyber' | 'slate' | 'minimal' | 'gold';
   logs: LogEntry[];
   onSendMessage: (message: string) => void;
+  onInterrupt?: () => void;
   videoRef: React.RefObject<HTMLVideoElement>;
   screenVideoRef: React.RefObject<HTMLVideoElement>;
   isOpticActive: boolean;
@@ -109,6 +110,7 @@ export const CinematicUserWorkspace: React.FC<CinematicUserWorkspaceProps> = ({
   theme,
   logs,
   onSendMessage,
+  onInterrupt,
   videoRef,
   screenVideoRef,
   isOpticActive,
@@ -405,7 +407,7 @@ export const CinematicUserWorkspace: React.FC<CinematicUserWorkspaceProps> = ({
         {/* Living Holographic AI Reactor Core (Fixed Stage Container) */}
         <div className="relative w-full max-w-5xl flex-1 flex flex-col items-center justify-center my-auto min-h-0">
           <div className="flex flex-col items-center justify-center">
-            <HudCore status={status} micLevel={micLevel} theme={theme} isUserMode={true} bootPower={bootPower} />
+            <HudCore status={status} micLevel={micLevel} theme={theme} isUserMode={true} bootPower={bootPower} onInterrupt={onInterrupt} />
           </div>
         </div>
 
@@ -522,7 +524,7 @@ export const CinematicUserWorkspace: React.FC<CinematicUserWorkspaceProps> = ({
                     key={log.id}
                     className={`flex flex-col gap-1 transition-all duration-300 animate-in fade-in slide-in-from-left-4 ${
                       revIndex === 0
-                        ? 'border-l-2 border-cyan-400 pl-3 py-1 bg-cyan-950/20 rounded-r-xl shadow-[0_0_15px_rgba(0,242,255,0.15)] opacity-100 font-extrabold'
+                        ? 'border-l-2 border-cyan-400 pl-3 py-1 bg-transparent opacity-100 font-extrabold'
                         : `bg-transparent ${opacityClass}`
                     }`}
                   >

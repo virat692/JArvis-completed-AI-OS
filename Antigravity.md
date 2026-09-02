@@ -3,21 +3,24 @@
 **Target System:** JARVIS AI Operating System (Version 5.0.0-PRO)  
 **Classification:** Official Autonomous Setup, Deployment, & Operations Blueprint  
 **Primary Architect / Orchestrator:** Google Antigravity Agent & DeepMind Gemini Core  
-**Current Date:** August 21, 2026  
+**Authoritative System Contract:** `JARVIS_MASTER_SPECIFICATION.md`  
+**Current Date:** August 23, 2026  
 
 ---
 
 ## 1. Executive Mission & System Overview
 
-JARVIS is a next-generation, high-performance holographic AI Operating System crafted in TypeScript, React, and FastAPI. It integrates real-time multimodal perception, autonomous browser execution, native PC bridge automation, meteorological telemetry, and a multi-LLM cognitive compute pipeline.
+JARVIS is an autonomous personal AI Operating System and unified command center crafted in TypeScript, React, and FastAPI. It strictly adheres to **`JARVIS_MASTER_SPECIFICATION.md`** as its single authoritative behavioral, architectural, and capability contract.
 
 ### Core Architecture Highlights:
-- **Single Assistant Invariant:** JARVIS is the sole user-facing persona. All secondary models (NVIDIA Nemotron, OpenAI GPT-4o, Anthropic Claude, DeepSeek R1, Local Ollama) operate strictly as headless backend computation workers.
-- **Autonomous Browser Agent (OTAV Engine):** Full **Observe $\rightarrow$ Think $\rightarrow$ Act $\rightarrow$ Verify** lifecycle with semantic DOM parsing (`[el-1]`, `[el-2]`), self-healing selector fallback, and human-in-the-loop safety guardrails for sensitive/financial operations.
-- **Meteorological Atmosphere Console:** Edge-to-edge full-screen 3D HTML5 Canvas atmospheric visualizer (Rain, Snow, Lightning, Volumetric Clouds, Solar Halos) powered by real-time Open-Meteo data and dynamic aura lighting.
-- **Neural Workspace (5 Modes):** Dynamic heuristic content routing dividing complex responses into Code, Data Tables, System Structure, Editorial Paragraphs, and Intelligence Overviews.
-- **Honest Hardware Telemetry:** Strict zero-fake-data policy. Reports `HOST TELEMETRY: SANDBOXED` in browser sandboxes, and streams real CPU, GPU, RAM, battery, and process telemetry when the Python OS Bridge daemon is active.
-- **Authority & Biometric Security:** 5-tier clearance hierarchy (`OBSERVER` to `ROOT`) paired with 128-dimensional facial vector embeddings and anti-spoof liveness checks.
+- **Approved AI Ecosystem:** Exclusively powered by Google Gemini (Primary brain), NVIDIA Nemotron (Deep reasoning/architecture), OpenRouter (Failover/resilience), Exa (Deep research index), Tavily (Web search index), and OpenWeather (Meteorological provider).
+- **Single Assistant Invariant:** JARVIS is the sole user-facing persona. All secondary models operate strictly as headless computation workers.
+- **Autonomous Browser Agent (OTAV Engine) & Native PC Browser:** Dual-engine web automation combining DOM semantic parsing with direct Host Chrome/Edge launching via Native OS Bridge (`main.py` / `jarvis_bridge.py`).
+- **Meteorological Atmosphere Console:** Edge-to-edge full-screen 3D HTML5 Canvas atmospheric visualizer powered by real-time OpenWeather / Open-Meteo data with dynamic aura lighting.
+- **Neural Workspace (4 Modes):** Structured presentation layer supporting `CODE`, `STRUCTURE`, `DATA`, and `OVERVIEW`.
+- **Honest Hardware Telemetry & Zero Fabrication:** Reports `HOST TELEMETRY: SANDBOXED` in browser sandbox mode, and streams real CPU, GPU, RAM, battery, and process metrics when the Python OS Bridge daemon is active.
+- **NVIDIA OCR V2 & Screen Perception:** High-fidelity OCR text extraction pipeline paired with Gemini/Nemotron multimodal reasoning.
+- **Authority, Biometrics & Safety:** 5-tier clearance hierarchy with destructive-action confirmation gates.
 
 ---
 
@@ -69,17 +72,14 @@ Create a `.env` file in the project root:
 GEMINI_API_KEY=your_gemini_api_key_here
 
 # OpenRouter Gateway (for NVIDIA Nemotron, DeepSeek R1, GPT-4o, Claude)
+# Approved External Provider Keys (Configure via Settings > Credential Center)
+GEMINI_API_KEY=your_gemini_api_key_here
+NEMOTRON_API_KEY=your_nemotron_api_key_here
 OPENROUTER_API_KEY=your_openrouter_api_key_here
-
-# Neural Voice Synthesis (Optional - falls back to Web Speech / Gemini TTS)
-ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
-ELEVENLABS_VOICE_ID=21m00Tcm4TlvDq8ikWAM
-
-# Local Ollama Air-Gapped Compute (Optional)
-LOCAL_LLM_URL=http://localhost:11434
-
-# Weather API (Optional - Open-Meteo runs free without API keys)
-WEATHER_API_KEY=
+EXA_API_KEY=your_exa_api_key_here
+TAVILY_API_KEY=your_tavily_api_key_here
+OPENWEATHER_API_KEY=your_openweather_api_key_here
+NVIDIA_OCR_API_KEY=your_nvidia_ocr_api_key_here
 ```
 
 ---
@@ -158,6 +158,7 @@ npx tsx scripts/verify_subsystems.ts
 - `[PASS]` NVIDIA Nemotron Reasoning Delegation (Headless execution loop)
 - `[PASS]` Task & Reminder Temporal Engine (1Hz cron scanner & acoustic alerts)
 - `[PASS]` Autonomous Browser Agent Subsystem (Element parsing, OTAV, safety)
+- `[PASS]` Native Host Browser Automation (Google Chrome & Microsoft Edge host execution)
 
 ### Step 2: TypeScript Strict Compilation Check
 ```bash

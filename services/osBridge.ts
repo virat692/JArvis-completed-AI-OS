@@ -64,6 +64,19 @@ export const osBridge = {
           data: null
         };
 
+      case 'open_browser':
+      case 'launch_browser':
+      case 'browser_navigate':
+      case 'browser_search':
+      case 'open_chrome':
+      case 'open_edge':
+        const targetBrowser = params.browser || (action.includes('edge') ? 'Microsoft Edge' : 'Google Chrome');
+        return {
+          success: false,
+          bridgeOffline: true,
+          message: `NATIVE BRIDGE OFFLINE: Cannot open host ${targetBrowser} directly from browser sandbox. Start 'python jarvis_bridge.py' on your computer to enable real Chrome/Edge automation.`
+        };
+
       case 'open_app':
       case 'launch_app':
         return { 
@@ -165,5 +178,28 @@ export const osBridge = {
       return this.execute({ action: 'get_task_status', params: { task_id: taskId } });
     }
     return { status: 'completed', result: `Research analysis complete for ${taskId}.` };
+  },
+
+  // --- Native Host Browser Automation (Chrome / Edge) ---
+  async launchNativeBrowser(params: { browser?: 'chrome' | 'edge' | 'default'; url?: string; query?: string } = {}): Promise<any> {
+    const { browser = 'chrome', url, query } = params;
+    return this.execute({
+      action: 'open_browser',
+      params: { browser, url, query }
+    });
+  },
+
+  async browserNavigate(url: string, browser: 'chrome' | 'edge' = 'chrome'): Promise<any> {
+    return this.execute({
+      action: 'browser_navigate',
+      params: { browser, url }
+    });
+  },
+
+  async browserSearch(query: string, browser: 'chrome' | 'edge' = 'chrome'): Promise<any> {
+    return this.execute({
+      action: 'browser_search',
+      params: { browser, query }
+    });
   }
 };

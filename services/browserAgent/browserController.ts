@@ -33,6 +33,13 @@ export class BrowserController {
   }
 
   /**
+   * Directly launch or control native Google Chrome or Microsoft Edge on host machine.
+   */
+  public async openHostBrowser(params: { browser?: 'chrome' | 'edge' | 'default'; url?: string; query?: string } = {}): Promise<any> {
+    return osBridge.launchNativeBrowser(params);
+  }
+
+  /**
    * Captures the current page state (DOM summary, interactive elements, viewport, overlay status).
    */
   public async observePageState(): Promise<BrowserPageState> {

@@ -424,6 +424,28 @@ export const WeatherPanel: React.FC<WeatherPanelProps> = ({
   const [isVoiceListening, setIsVoiceListening] = useState(false);
   const [voiceTranscript, setVoiceTranscript] = useState('');
   const speechRecognitionRef = useRef<any>(null);
+  const finalVoiceTranscriptRef = useRef<string>('');
+  const hasDispatchedVoiceRef = useRef<boolean>(false);
+
+  const statusRef = useRef<JarvisStatus>(status);
+  useEffect(() => {
+    statusRef.current = status;
+    if (status === JarvisStatus.SPEAKING && isVoiceListening) {
+      if (speechRecognitionRef.current) {
+        try { speechRecognitionRef.current.stop(); } catch (e) {}
+      }
+      setIsVoiceListening(false);
+    }
+  }, [status, isVoiceListening]);
+
+  // Clean up speech recognition on unmount
+  useEffect(() => {
+    return () => {
+      if (speechRecognitionRef.current) {
+        try { speechRecognitionRef.current.stop(); } catch (e) {}
+      }
+    };
+  }, []);
 
   // API Key Inline Quick-Config
   const [showKeyInput, setShowKeyInput] = useState(false);
@@ -989,7 +1011,26 @@ export const WeatherPanel: React.FC<WeatherPanelProps> = ({
     };
 
     autoTrackDevice();
-    return () => { isMounted = false; };
+
+    // Periodic 5-minute auto-refresh to keep real-time meteorological stream synchronized
+    const syncInterval = setInterval(() => {
+      if (activeLocationRef.current) {
+        fetchWeather(activeLocationRef.current.target, activeLocationRef.current.city, activeLocationRef.current.state);
+      }
+    }, 5 * 60 * 1000);
+
+    const handleWindowFocus = () => {
+      if (activeLocationRef.current) {
+        fetchWeather(activeLocationRef.current.target, activeLocationRef.current.city, activeLocationRef.current.state);
+      }
+    };
+    window.addEventListener('focus', handleWindowFocus);
+
+    return () => { 
+      isMounted = false; 
+      clearInterval(syncInterval);
+      window.removeEventListener('focus', handleWindowFocus);
+    };
   }, [fetchWeather]);
 
   // SYSTEMATIC CONTROL: Subscribe to JARVIS Weather Control Service Actions
@@ -1135,6 +1176,10 @@ export const WeatherPanel: React.FC<WeatherPanelProps> = ({
       return;
     }
 
+    if (statusRef.current === JarvisStatus.SPEAKING) {
+      return;
+    }
+
     if (!SpeechRecognition) {
       if (handleStartLive) {
         handleStartLive();
@@ -1153,13 +1198,20 @@ export const WeatherPanel: React.FC<WeatherPanelProps> = ({
       recognition.onstart = () => {
         setIsVoiceListening(true);
         setVoiceTranscript('');
+        finalVoiceTranscriptRef.current = '';
+        hasDispatchedVoiceRef.current = false;
+        console.log('[VOICE][STT] WeatherPanel voice recognition started');
       };
 
       recognition.onresult = (event: any) => {
+        if (statusRef.current === JarvisStatus.SPEAKING) {
+          return;
+        }
         let transcript = '';
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           transcript += event.results[i][0].transcript;
         }
+        finalVoiceTranscriptRef.current = transcript;
         setVoiceTranscript(transcript);
         setQuickVoicePrompt(transcript);
       };
@@ -1171,17 +1223,18 @@ export const WeatherPanel: React.FC<WeatherPanelProps> = ({
 
       recognition.onend = () => {
         setIsVoiceListening(false);
-        setVoiceTranscript((prev) => {
-          if (prev && prev.trim()) {
-            const query = prev.trim();
-            if (onSendMessage) {
-              onSendMessage(query);
-            } else if (onAskJarvisWeather) {
-              onAskJarvisWeather(query);
-            }
+        const query = finalVoiceTranscriptRef.current.trim();
+        finalVoiceTranscriptRef.current = '';
+        if (!hasDispatchedVoiceRef.current && query) {
+          hasDispatchedVoiceRef.current = true;
+          console.log(`[VOICE][STT] WeatherPanel utterance captured: "${query}"`);
+          if (onSendMessage) {
+            onSendMessage(query);
+          } else if (onAskJarvisWeather) {
+            onAskJarvisWeather(query);
           }
-          return '';
-        });
+        }
+        setVoiceTranscript('');
       };
 
       speechRecognitionRef.current = recognition;

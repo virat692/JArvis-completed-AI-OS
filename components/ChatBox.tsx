@@ -1,20 +1,48 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Image as ImageIcon, Paperclip, X, Zap, Mic, MicOff } from 'lucide-react';
+import { JarvisStatus } from '../types';
 
 interface ChatBoxProps {
   onSendMessage: (msg: string, files?: File[]) => void;
   waveform?: React.ReactNode;
   theme?: 'cyber' | 'slate' | 'minimal' | 'gold';
+  status?: JarvisStatus;
+  onInterrupt?: () => void;
 }
 
-const ChatBox: React.FC<ChatBoxProps> = ({ onSendMessage, waveform, theme = 'cyber' }) => {
+const ChatBox: React.FC<ChatBoxProps> = ({ onSendMessage, waveform, theme = 'cyber', status, onInterrupt }) => {
   const [inputValue, setInputValue] = useState('');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isListening, setIsListening] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
+  const statusRef = useRef<JarvisStatus | undefined>(status);
+
+  useEffect(() => {
+    statusRef.current = status;
+    // Auto-stop speech recognition when JARVIS is vocalizing
+    if (status === JarvisStatus.SPEAKING && isListening) {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {}
+      }
+      setIsListening(false);
+    }
+  }, [status, isListening]);
+
+  // Clean up recognition on unmount
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {}
+      }
+    };
+  }, []);
 
   const isSlate = theme === 'slate';
   const isMinimal = theme === 'minimal';
@@ -41,46 +69,17 @@ const ChatBox: React.FC<ChatBoxProps> = ({ onSendMessage, waveform, theme = 'cyb
     }
   };
 
-  useEffect(() => {
-    try {
-      const rec = createSpeechRecognitionInstance();
-      if (rec) {
-        rec.continuous = false;
-        rec.interimResults = true;
-        rec.lang = 'hi-IN'; // Supports Hindi & Hinglish/English mix
-
-        rec.onresult = (event: any) => {
-          let transcript = '';
-          for (let i = 0; i < event.results.length; i++) {
-            transcript += event.results[i][0].transcript;
-          }
-          if (transcript.trim()) {
-            setInputValue(transcript);
-          }
-        };
-
-        rec.onerror = (e: any) => {
-          console.warn('Speech recognition error:', e);
-          setIsListening(false);
-        };
-
-        rec.onend = () => {
-          setIsListening(false);
-        };
-
-        recognitionRef.current = rec;
-      }
-    } catch (err) {
-      console.warn('SpeechRecognition effect error:', err);
-    }
-  }, []);
-
   const toggleVoiceInput = () => {
     if (isListening && recognitionRef.current) {
       try {
         recognitionRef.current.stop();
       } catch (e) {}
       setIsListening(false);
+      return;
+    }
+
+    // Do not start mic capture if Jarvis is currently speaking out loud
+    if (statusRef.current === JarvisStatus.SPEAKING) {
       return;
     }
 
@@ -100,6 +99,11 @@ const ChatBox: React.FC<ChatBoxProps> = ({ onSendMessage, waveform, theme = 'cyb
       };
 
       rec.onresult = (event: any) => {
+        // Prevent typing into text box if JARVIS is speaking
+        if (statusRef.current === JarvisStatus.SPEAKING) {
+          return;
+        }
+
         let transcript = '';
         for (let i = 0; i < event.results.length; i++) {
           transcript += event.results[i][0].transcript;

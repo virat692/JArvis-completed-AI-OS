@@ -8,6 +8,7 @@ interface HudCoreProps {
   theme?: JarvisTheme;
   isUserMode?: boolean;
   bootPower?: number;
+  onInterrupt?: () => void;
 }
 
 // Expressive AI Core Eye Component (Living Expressions, Blinking, Audio Modulation)
@@ -266,6 +267,7 @@ export const HudCore: React.FC<HudCoreProps> = ({
   theme = 'cyber',
   isUserMode = false,
   bootPower = 1,
+  onInterrupt,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -569,9 +571,19 @@ export const HudCore: React.FC<HudCoreProps> = ({
 
           {/* Inner Arc Reactor Dark Core Frame */}
           <div
+            onClick={() => {
+              if ((status === JarvisStatus.SPEAKING || status === JarvisStatus.THINKING) && onInterrupt) {
+                onInterrupt();
+              }
+            }}
             className={`rounded-full border border-blue-400/80 bg-black/95 flex items-center justify-center transition-all duration-300 z-10 overflow-hidden relative ${
               isUserMode ? 'w-32 h-32' : 'w-20 h-20'
-            } scale-100 shadow-[0_0_25px_rgba(0,85,255,0.5)]`}
+            } scale-100 shadow-[0_0_25px_rgba(0,85,255,0.5)] ${
+              (status === JarvisStatus.SPEAKING || status === JarvisStatus.THINKING) && onInterrupt
+                ? 'cursor-pointer hover:scale-105 hover:border-red-400/80 hover:shadow-[0_0_30px_rgba(239,68,68,0.7)]'
+                : ''
+            }`}
+            title={status === JarvisStatus.SPEAKING ? 'Click to Stop / Interrupt JARVIS (Esc)' : undefined}
           >
             <ExpressiveJarvisEye
               status={status}
@@ -604,7 +616,19 @@ export const HudCore: React.FC<HudCoreProps> = ({
         </div>
 
         {/* Compact & Ultra-Sleek Telemetry Status Pill */}
-        <div className="flex items-center justify-center gap-1.5 px-3 py-0.5 min-h-[22px] sm:min-h-[24px] rounded-full bg-[rgba(2,12,27,0.55)] border border-cyan-400/35 backdrop-blur-[16px] shadow-[0_4px_20px_rgba(0,0,0,0.6),0_0_15px_rgba(0,242,255,0.2)] hover:border-cyan-300/60 transition-all duration-300">
+        <div 
+          onClick={() => {
+            if ((status === JarvisStatus.SPEAKING || status === JarvisStatus.THINKING) && onInterrupt) {
+              onInterrupt();
+            }
+          }}
+          className={`flex items-center justify-center gap-1.5 px-3 py-0.5 min-h-[22px] sm:min-h-[24px] rounded-full bg-[rgba(2,12,27,0.55)] border border-cyan-400/35 backdrop-blur-[16px] shadow-[0_4px_20px_rgba(0,0,0,0.6),0_0_15px_rgba(0,242,255,0.2)] hover:border-cyan-300/60 transition-all duration-300 ${
+            (status === JarvisStatus.SPEAKING || status === JarvisStatus.THINKING) && onInterrupt
+              ? 'cursor-pointer hover:bg-red-950/60 hover:border-red-400/70 hover:shadow-[0_0_15px_rgba(239,68,68,0.5)]'
+              : ''
+          }`}
+          title={status === JarvisStatus.SPEAKING ? 'Click to Stop / Interrupt JARVIS (Esc)' : undefined}
+        >
           <span
             className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
               status === JarvisStatus.SPEAKING

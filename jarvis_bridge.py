@@ -332,19 +332,82 @@ async def handle_action(payload: Dict[str, Any]) -> Dict[str, Any]:
             return {"success": True, "type": "pong", "timestamp": int(time.time() * 1000)}
 
         # ==========================================
-        # 2. APPLICATIONS MANAGEMENT
+        # 2. APPLICATIONS & NATIVE BROWSER MANAGEMENT
         # ==========================================
+        elif action in ["open_browser", "launch_browser", "browser_navigate", "browser_search", "open_chrome", "open_edge"]:
+            browser_choice = params.get("browser") or ("edge" if "edge" in action else "chrome")
+            url = params.get("url") or ""
+            query = params.get("query") or params.get("q") or ""
+            
+            # Format search URL if query is provided
+            if query and not url:
+                import urllib.parse
+                q_enc = urllib.parse.quote_plus(query)
+                if "edge" in browser_choice.lower():
+                    url = f"https://www.bing.com/search?q={q_enc}"
+                else:
+                    url = f"https://www.google.com/search?q={q_enc}"
+            elif not url:
+                url = "https://www.google.com"
+
+            is_edge = "edge" in browser_choice.lower() or "msedge" in browser_choice.lower()
+            try:
+                if sys.platform == "win32":
+                    if is_edge:
+                        edge_paths = [
+                            r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+                            r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+                            os.path.expandvars(r"%LocalAppData%\Microsoft\Edge\Application\msedge.exe")
+                        ]
+                        found = next((p for p in edge_paths if os.path.exists(p)), None)
+                        if found:
+                            subprocess.Popen([found, url])
+                        else:
+                            subprocess.Popen(f'start msedge "{url}"', shell=True)
+                        return {"success": True, "browser": "Microsoft Edge", "url": url, "message": f"Successfully launched Microsoft Edge navigating to {url}."}
+                    else:
+                        chrome_paths = [
+                            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+                            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+                            os.path.expandvars(r"%LocalAppData%\Google\Chrome\Application\chrome.exe")
+                        ]
+                        found = next((p for p in chrome_paths if os.path.exists(p)), None)
+                        if found:
+                            subprocess.Popen([found, url])
+                        else:
+                            subprocess.Popen(f'start chrome "{url}"', shell=True)
+                        return {"success": True, "browser": "Google Chrome", "url": url, "message": f"Successfully launched Google Chrome navigating to {url}."}
+                elif sys.platform == "darwin":
+                    app_name = "Microsoft Edge" if is_edge else "Google Chrome"
+                    subprocess.Popen(["open", "-a", app_name, url])
+                    return {"success": True, "browser": app_name, "url": url, "message": f"Successfully opened {app_name} at {url}."}
+                else:
+                    cmd = "microsoft-edge" if is_edge else "google-chrome"
+                    try:
+                        subprocess.Popen([cmd, url])
+                    except Exception:
+                        subprocess.Popen(["xdg-open", url])
+                    return {"success": True, "browser": cmd, "url": url, "message": f"Successfully opened host browser at {url}."}
+            except Exception as b_err:
+                import webbrowser
+                webbrowser.open(url)
+                return {"success": True, "browser": "Default", "url": url, "message": f"Opened {url} in default host browser (fallback)."}
+
         elif action in ["open_app", "launch_app"]:
             app_name = (params.get("name") or params.get("app_name") or params.get("target") or "").strip()
+            url_param = params.get("url") or ""
             if not app_name:
                 return {"success": False, "message": "Application name or executable path is required."}
 
             low_name = app_name.lower()
+            if "chrome" in low_name:
+                return await handle_action({"action": "open_browser", "params": {"browser": "chrome", "url": url_param, "query": params.get("query")}})
+            elif "edge" in low_name:
+                return await handle_action({"action": "open_browser", "params": {"browser": "edge", "url": url_param, "query": params.get("query")}})
+
             if sys.platform == "win32":
                 if any(k in low_name for k in ["code", "vscode", "vs code"]):
                     subprocess.Popen(["code"], shell=True)
-                elif "chrome" in low_name:
-                    subprocess.Popen(["start", "chrome"], shell=True)
                 elif any(k in low_name for k in ["terminal", "powershell", "cmd"]):
                     subprocess.Popen(["start", "cmd"], shell=True)
                 elif "notepad" in low_name:

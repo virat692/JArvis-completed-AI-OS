@@ -45,10 +45,10 @@ class MemoryRequest(BaseModel):
 
 # Security Whitelist
 ALLOWED_ACTIONS = {
-    "open_app": ["notepad", "calc", "explorer", "cmd", "taskmgr", "code"],
+    "open_app": ["notepad", "calc", "explorer", "cmd", "taskmgr", "code", "chrome", "edge", "google-chrome", "msedge"],
     "system_info": ["cpu", "memory", "disk", "battery"],
     "power_control": ["lock", "sleep"],
-    "browser": ["open_url"]
+    "browser": ["open_url", "search", "open_chrome", "open_edge"]
 }
 
 @app.get("/health")
@@ -167,8 +167,34 @@ async def execute_command(request: CommandRequest):
     action = request.action
     params = request.params
     try:
-        if action == "open_app":
+        if action in ["open_app", "open_browser", "browser"]:
             app_name = params.get("app_name", "").lower()
+            url = params.get("url", "")
+            query = params.get("query", "")
+            if query and not url:
+                import urllib.parse
+                url = f"https://www.google.com/search?q={urllib.parse.quote_plus(query)}"
+            elif not url:
+                url = "https://www.google.com"
+
+            if "chrome" in app_name or action in ["open_chrome", "browser"]:
+                if platform.system() == "Windows":
+                    subprocess.Popen(f'start chrome "{url}"', shell=True)
+                elif platform.system() == "Darwin":
+                    subprocess.Popen(["open", "-a", "Google Chrome", url])
+                else:
+                    subprocess.Popen(["google-chrome", url])
+                return {"status": "success", "message": f"Opening Google Chrome at {url}"}
+
+            elif "edge" in app_name:
+                if platform.system() == "Windows":
+                    subprocess.Popen(f'start msedge "{url}"', shell=True)
+                elif platform.system() == "Darwin":
+                    subprocess.Popen(["open", "-a", "Microsoft Edge", url])
+                else:
+                    subprocess.Popen(["microsoft-edge", url])
+                return {"status": "success", "message": f"Opening Microsoft Edge at {url}"}
+
             if app_name in ALLOWED_ACTIONS["open_app"]:
                 subprocess.Popen(app_name)
                 return {"status": "success", "message": f"Opening {app_name}"}

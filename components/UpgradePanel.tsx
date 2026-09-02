@@ -19,6 +19,7 @@ interface UpgradePanelProps {
   onClear: () => void;
   onRemove: (id: string) => void;
   onAddRequest?: (task: string, reason: string, priority: 'low' | 'medium' | 'high', suggestedModule?: string) => void;
+  onApplyPatch?: (id: string) => void;
   theme?: 'cyber' | 'slate' | 'minimal' | 'gold';
 }
 
@@ -31,6 +32,7 @@ export const UpgradePanel: React.FC<UpgradePanelProps> = ({
   onClear, 
   onRemove, 
   onAddRequest,
+  onApplyPatch,
   theme = 'cyber' 
 }) => {
   const [activeFilter, setActiveFilter] = useState<UpgradeFilter>('ALL');
@@ -48,46 +50,7 @@ export const UpgradePanel: React.FC<UpgradePanelProps> = ({
   const [newPriority, setNewPriority] = useState<'low' | 'medium' | 'high'>('high');
   const [newModule, setNewModule] = useState('');
 
-  // Default seeded system upgrades if none exist
-  const systemDefaultRequests: UpgradeRequest[] = useMemo(() => [
-    {
-      id: 'upg_default_1',
-      task: 'Multi-Modal Visual Neural Co-Processor',
-      reason: 'Achieve real-time 60 FPS bounding-box target tracking and low-latency OCR parsing without CPU throttling.',
-      priority: 'high',
-      suggested_module: 'optic_neural_vision',
-      timestamp: Date.now() - 3600000 * 4
-    },
-    {
-      id: 'upg_default_2',
-      task: 'Local Quantum Vector Embeddings Cache',
-      reason: 'Sub-millisecond semantic retrieval across 50,000 vector memory anchors using ChromaDB index acceleration.',
-      priority: 'medium',
-      suggested_module: 'chroma_vector_db',
-      timestamp: Date.now() - 3600000 * 12
-    },
-    {
-      id: 'upg_default_3',
-      task: 'NVIDIA TensorRT-LLM Acceleration Pipeline',
-      reason: 'Offload local transformer weights to FP8 Tensor Cores for 4x faster conversational token generation.',
-      priority: 'high',
-      suggested_module: 'nvidia_tensorrt_bridge',
-      timestamp: Date.now() - 3600000 * 24
-    },
-    {
-      id: 'upg_default_4',
-      task: 'Autonomous Swarm Agent Orchestration Engine',
-      reason: 'Distributed concurrent sub-agent dispatch for automated web research, file organization and system health checks.',
-      priority: 'medium',
-      suggested_module: 'autonomous_swarm_director',
-      timestamp: Date.now() - 3600000 * 48
-    }
-  ], []);
-
-  const allRequests = useMemo(() => {
-    if (requests && requests.length > 0) return requests;
-    return systemDefaultRequests;
-  }, [requests, systemDefaultRequests]);
+  const allRequests = requests || [];
 
   if (!isOpen) return null;
 
@@ -102,7 +65,7 @@ export const UpgradePanel: React.FC<UpgradePanelProps> = ({
 
     setTimeout(() => {
       setIsScanning(false);
-      setScanMessage('Scan complete. 4 optimization pathways identified.');
+      setScanMessage('Scan complete. Systems evaluated against current architectural baseline.');
       playDigitalPingSound();
       setTimeout(() => setScanMessage(null), 3000);
     }, 1800);
@@ -114,6 +77,9 @@ export const UpgradePanel: React.FC<UpgradePanelProps> = ({
 
     setTimeout(() => {
       setAppliedPatches(prev => ({ ...prev, [id]: true }));
+      if (onApplyPatch) {
+        onApplyPatch(id);
+      }
       setPatchingId(null);
       playDirectiveCompleteChime();
     }, 1200);
@@ -168,7 +134,7 @@ export const UpgradePanel: React.FC<UpgradePanelProps> = ({
   };
 
   const filteredRequests = allRequests.filter(req => {
-    const isApplied = !!appliedPatches[req.id];
+    const isApplied = req.status === 'applied' || !!appliedPatches[req.id];
     
     if (activeFilter === 'APPLIED' && !isApplied) return false;
     if (activeFilter === 'CRITICAL' && req.priority !== 'high') return false;
@@ -189,7 +155,7 @@ export const UpgradePanel: React.FC<UpgradePanelProps> = ({
   });
 
   const highPriorityCount = allRequests.filter(r => r.priority === 'high').length;
-  const appliedCount = Object.keys(appliedPatches).length;
+  const appliedCount = allRequests.filter(r => r.status === 'applied' || !!appliedPatches[r.id]).length;
   const systemHealthScore = Math.min(100, 84 + appliedCount * 4);
 
   return (
@@ -494,7 +460,7 @@ export const UpgradePanel: React.FC<UpgradePanelProps> = ({
               </div>
             ) : (
               filteredRequests.map((req) => {
-                const isApplied = !!appliedPatches[req.id];
+                const isApplied = req.status === 'applied' || !!appliedPatches[req.id];
                 const isPatching = patchingId === req.id;
 
                 return (

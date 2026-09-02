@@ -20,9 +20,10 @@ export async function sendOpenRouterRequest(params: {
   systemPrompt: string;
   userMessage: string;
   inlineFiles?: { data: string; mimeType: string }[];
+  conversationHistory?: { role: 'user' | 'assistant' | 'system'; content: string }[];
   onChunk?: (chunkText: string) => void;
 }): Promise<string> {
-  const { apiKey, model = DEFAULT_OPENROUTER_MODEL, systemPrompt, userMessage, inlineFiles, onChunk } = params;
+  const { apiKey, model = DEFAULT_OPENROUTER_MODEL, systemPrompt, userMessage, inlineFiles, conversationHistory, onChunk } = params;
 
   if (!apiKey || !apiKey.trim()) {
     throw new Error("OpenRouter API Key is missing. Please set your OpenRouter key in System Config.");
@@ -50,8 +51,16 @@ export async function sendOpenRouterRequest(params: {
     }
   }
 
+  const historyMessages = Array.isArray(conversationHistory) && conversationHistory.length > 0
+    ? conversationHistory.map(m => ({
+        role: m.role,
+        content: m.content
+      }))
+    : [];
+
   const messages = [
     { role: 'system', content: systemPrompt },
+    ...historyMessages,
     { role: 'user', content: userContent }
   ];
 

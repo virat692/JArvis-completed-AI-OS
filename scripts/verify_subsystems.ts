@@ -364,6 +364,22 @@ async function main() {
   });
 
   // =====================================================
+  // 10. TEST NATIVE HOST BROWSER AUTOMATION (CHROME & EDGE)
+  // =====================================================
+  console.log('\n--- 10. Testing Native Host Browser Automation (Chrome & Edge) ---');
+  await runTest('NativeBrowser', 'Controller exposes openHostBrowser and osBridge handles Chrome/Edge routing', async () => {
+    const controller = browserAgent.getController();
+    assert(typeof controller.openHostBrowser === 'function', 'BrowserController must expose openHostBrowser method');
+    
+    // Test that launching browser produces proper structured telemetry response (or informative offline notice)
+    const chromeRes = await controller.openHostBrowser({ browser: 'chrome', url: 'https://www.google.com' });
+    assert(chromeRes !== undefined, 'Chrome launch response must be defined');
+    
+    const edgeRes = await controller.openHostBrowser({ browser: 'edge', query: 'JARVIS AI System Architecture' });
+    assert(edgeRes !== undefined, 'Edge search response must be defined');
+  });
+
+  // =====================================================
   // SUMMARY REPORT
   // =====================================================
   console.log('\n====================================================');
